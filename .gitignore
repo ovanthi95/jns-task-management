@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Local databases
+db.sqlite3
+
+# Node / React
+node_modules/
+
+# Build output
+dist/
+build/

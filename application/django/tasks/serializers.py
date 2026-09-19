@@ -11,14 +11,51 @@ Two rules this file follows:
 1. The client never sends organisation_id or created_by. The view derives both
    from the authenticated user, so a forged request body cannot put a task in
    another organisation's project.
-2. Field names on the wire end in _id and match the React form exactly
-   (presentation/react/src/views/tasks/CreateTask.jsx). The model field is
-   reached through `source`, so renaming one side does not break the other.
+2. Each lookup is exposed on the wire as <name>_id. The model field is reached
+   through `source`, so the wire name and the model field name can change
+   independently of one another.
 """
 
+from django.db import transaction
 from rest_framework import serializers
 
-from .models import Priority, Task, TaskStatus, TaskType
+from projects.models import ProjectMember
+from users.models import User
+
+from .models import Priority, Task, TaskAssignee, TaskStatus, TaskType
+
+
+class TaskAssigneeSerializer(serializers.ModelSerializer):
+    """One row of task_assignees, flattened for the client.
+
+    Only the four fields the agreed read contract names. The user's email and
+    password hash are both reachable from here through the foreign key, so the
+    field list is written out rather than left to `__all__`: a field added to
+    the User model later cannot leak into this response by accident.
+    """
+
+    user_id = serializers.IntegerField(
+        source="user.user_id",
+        read_only=True,
+    )
+    first_name = serializers.CharField(
+        source="user.first_name",
+        read_only=True,
+    )
+    last_name = serializers.CharField(
+        source="user.last_name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskAssignee
+
+        fields = [
+            "user_id",
+            "first_name",
+            "last_name",
+            "assignment_role",
+        ]
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -26,7 +63,17 @@ class TaskSerializer(serializers.ModelSerializer):
 
     Each lookup is returned as both its id and its name so the client can
     display a task without a second request per row.
+
+    `assignees` is an array even though API 06 accepts exactly one
+    `assignee_id`. task_assignees can hold several rows per task, so the read
+    contract is written for that shape now and will not have to change when a
+    later service assigns more than one person.
     """
+
+    assignees = TaskAssigneeSerializer(
+        many=True,
+        read_only=True,
+    )
 
     project_id = serializers.IntegerField(
         source="project.project_id",
@@ -83,6 +130,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "due_date",
             "estimated_hours",
             "actual_hours",
+            "assignees",
             "created_by_id",
             "created_at",
             "updated_at",
@@ -97,6 +145,11 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     The three lookup fields are required. The database declares them NOT NULL
     with no default, so there is no value this layer could pick on the caller's
     behalf without inventing one.
+
+    `assignee_id` is required as well. API 06 is "create and assign a task", so
+    a task cannot be created through this service without an assignee. Exactly
+    one is accepted: task_assignees can hold several rows per task, but the
+    agreed contract for this card creates one.
     """
 
     task_type_id = serializers.PrimaryKeyRelatedField(
@@ -114,6 +167,11 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         queryset=Priority.objects.all(),
     )
 
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        write_only=True,
+    )
+
     class Meta:
         model = Task
 
@@ -121,6 +179,7 @@ class TaskCreateSerializer(serializers.ModelSerializer):
             "task_type_id",
             "status_id",
             "priority_id",
+            "assignee_id",
             "title",
             "description",
             "start_date",
@@ -136,6 +195,34 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
         return title
 
+    def validate_assignee_id(self, user):
+        """The assignee has to be someone who can work on this project.
+
+        PrimaryKeyRelatedField has already rejected an id matching no user, so
+        what is left is that the user is in this project's organisation and
+        holds a ProjectMember row for it. Project.created_by is deliberately
+        not accepted as implicit membership.
+        """
+
+        project = self.context["project"]
+
+        if user.organisation_id != project.organisation_id:
+            raise serializers.ValidationError(
+                "That user does not belong to this project's organisation."
+            )
+
+        is_member = ProjectMember.objects.filter(
+            project=project,
+            user=user,
+        ).exists()
+
+        if not is_member:
+            raise serializers.ValidationError(
+                "That user is not a member of this project."
+            )
+
+        return user
+
     def validate(self, attrs):
         start_date = attrs.get("start_date")
         due_date = attrs.get("due_date")
@@ -146,3 +233,26 @@ class TaskCreateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+    def create(self, validated_data):
+        """Write the task and its assignment together, or write neither.
+
+        Without the transaction, a failure on the second insert would leave a
+        task with no assignee behind, which is exactly the state API 06 is not
+        allowed to produce.
+        """
+
+        assignee = validated_data.pop("assignee_id")
+
+        with transaction.atomic():
+            task = Task.objects.create(**validated_data)
+
+            TaskAssignee.objects.create(
+                task=task,
+                user=assignee,
+                assigned_by=validated_data["created_by"],
+                # assignment_role stays NULL: the contract does not define
+                # any values for it yet.
+            )
+
+        return task

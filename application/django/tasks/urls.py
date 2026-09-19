@@ -7,9 +7,11 @@ Only the two services on the agreed REST list are registered:
 
 The `api/` prefix is added once in config/urls.py, so it is not repeated here.
 
-Note there is no trailing slash, because the agreed contract has none. Django
-appends one by default on a 404, so /api/projects/1/tasks/ will redirect rather
-than fail, but the canonical form is the one written below.
+Note there is no trailing slash, because the agreed contract has none.
+APPEND_SLASH is on by Django's default, but it only redirects when the slashed
+form matches a registered route. Only the unslashed form is registered here, so
+/api/projects/1/tasks/ is a plain 404 and a POST body can never be silently
+dropped in a redirect. test_the_route_has_no_trailing_slash asserts this.
 """
 
 from django.urls import path

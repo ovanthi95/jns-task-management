@@ -1,0 +1,5 @@
+-- API 04
+-- Owner: Jesse
+-- Endpoint: POST /api/projects
+-- Stored procedure: sp_create_project
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

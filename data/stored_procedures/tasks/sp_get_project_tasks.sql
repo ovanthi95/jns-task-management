@@ -1,0 +1,5 @@
+-- API 07
+-- Owner: Edward
+-- Endpoint: GET /api/projects/:projectId/tasks
+-- Stored procedure: sp_get_project_tasks
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

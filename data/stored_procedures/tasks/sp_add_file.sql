@@ -1,0 +1,5 @@
+-- API 10
+-- Owner: Manatka
+-- Endpoint: POST /api/tasks/:taskId/files
+-- Stored procedure: sp_add_file
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

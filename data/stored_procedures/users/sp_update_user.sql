@@ -1,0 +1,5 @@
+-- API 12
+-- Owner: Ovanthi
+-- Endpoint: PATCH /api/users/:userId
+-- Stored procedure: sp_update_user
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

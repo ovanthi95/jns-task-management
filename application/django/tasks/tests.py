@@ -1,19 +1,43 @@
-"""Tests for API 06 and API 07.
+"""API 07 tests, plus the fixture both task test files share.
 
-    API 06  POST /api/projects/:projectId/tasks
-    API 07  GET  /api/projects/:projectId/tasks
+    API 07  GET /api/projects/:projectId/tasks
 
-Run them against SQLite, never against RDS:
+API 06's tests live in tasks/api/test_task_create.py, which is the file the
+playbook's map gives to this endpoint's test owner. API 07's test file,
+tasks/api/test_task_list.py, belongs to Jesse, so the API 07 tests stay here
+rather than being written into someone else's file. They move when he picks it
+up; ProjectTaskFixture is importable from there as it is from here.
+
+Running them
+------------
+These are MySQL integration tests and there is no SQLite fallback, because the
+endpoints call stored procedures and SQLite cannot execute them.
 
     cd application/django
-    DB_ENGINE=sqlite python manage.py test tasks
+    python manage.py test tasks
 
-The exported variable matters. `manage.py test` creates and then drops a
-database called test_<name>, so if DB_ENGINE is mysql it will do that on
-whatever DB_HOST points at. load_dotenv() does not override variables that are
-already in the environment, so setting it on the command line wins over .env.
+DB_ENGINE must be mysql, which is what .env already sets. `manage.py test`
+creates and drops a database called test_<DB_NAME>, so check DB_HOST is
+127.0.0.1 before running: pointed at RDS this would create and drop a database
+on the shared server.
+
+Loading the procedures
+----------------------
+The test database is built by migrate, which creates tables and nothing else,
+so the procedures have to be loaded into it before any test runs. That is what
+load_task_procedures does, and it is called from setUpClass before the
+class-level transaction opens: CREATE PROCEDURE causes an implicit commit in
+MySQL, so running it inside a test would end the transaction that TestCase
+relies on to roll the test back.
+
+load_task_procedures is a stopgap. The playbook gives the generic loader to
+Manatka; when that lands, this function is deleted and setUpClass calls the
+shared one instead.
 """
 
+from pathlib import Path
+
+from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -22,10 +46,67 @@ from rest_framework.test import APIClient
 from projects.models import Project, ProjectMember
 from users.models import Organisation, Role, User
 
-from .models import Priority, Task, TaskAssignee, TaskStatus, TaskType
+from .models import Priority, Task, TaskStatus, TaskType
+
+PROCEDURE_DIR = (
+    Path(__file__).resolve().parents[3]
+    / "data"
+    / "stored_procedures"
+    / "tasks"
+)
+
+# Only the procedures API 06 and API 07 call. The folder also holds stubs for
+# cards that belong to other people, and loading those would make this suite
+# fail for a reason that has nothing to do with these two endpoints.
+PROCEDURE_NAMES = (
+    "sp_create_task",
+    "sp_get_project_tasks",
+    "sp_get_project_user_access",
+    "sp_check_task_lookups",
+)
 
 
-class ProjectTaskApiTests(TestCase):
+def load_task_procedures():
+    """Load the four procedures into whatever database is connected."""
+
+    if connection.vendor != "mysql":
+        raise RuntimeError(
+            "These tests require MySQL. The endpoints call stored procedures, "
+            "which SQLite cannot execute. Set DB_ENGINE=mysql."
+        )
+
+    with connection.cursor() as cursor:
+        for name in PROCEDURE_NAMES:
+            for statement in _statements(PROCEDURE_DIR / f"{name}.sql"):
+                cursor.execute(statement)
+
+
+def _statements(path):
+    """The statements in one .sql file, without the DELIMITER directives.
+
+    DELIMITER is a directive of the mysql command line client, not SQL, so the
+    driver cannot be handed the file as it stands. The lines are dropped and
+    the file is split on the $ they introduce, which leaves two statements:
+    the DROP and the CREATE.
+
+    This holds because these four files contain no other $. It is a loader for
+    the files in this folder, not a general SQL parser.
+    """
+
+    lines = [
+        line
+        for line in path.read_text().splitlines()
+        if not line.strip().upper().startswith("DELIMITER")
+    ]
+
+    for chunk in "\n".join(lines).split("$"):
+        statement = chunk.strip().rstrip(";").strip()
+
+        if statement:
+            yield statement
+
+
+class ProjectTaskFixture(TestCase):
     """Two organisations, so tenant isolation is testable rather than assumed.
 
     The cast, and why each one exists:
@@ -37,7 +118,17 @@ class ProjectTaskApiTests(TestCase):
         admin      Admin, member. The other role allowed to create.
         outsider   Manager, same organisation, deliberately NOT a member.
         other_user Manager in a different organisation entirely.
+
+    Subclassed rather than mixed in, so a subclass inherits the procedure
+    loading as well as the cast and cannot be written without it.
     """
+
+    @classmethod
+    def setUpClass(cls):
+        # Before super(), which opens the class-level transaction. See the
+        # module docstring.
+        load_task_procedures()
+        super().setUpClass()
 
     def setUp(self):
         self.manager_role = Role.objects.create(role_name="Manager")
@@ -147,256 +238,14 @@ class ProjectTaskApiTests(TestCase):
 
         return payload
 
-    # ------------------------------------------------- API 06, happy path
 
-    def test_create_returns_201_and_the_new_task(self):
-        response = self.client.post(self.url, self._payload(), format="json")
+class ProjectTaskListTests(ProjectTaskFixture):
+    """API 07.
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["title"], "File the GST return")
-        self.assertEqual(response.data["project_id"], self.project.pk)
-        self.assertEqual(response.data["status_name"], "New")
-        self.assertEqual(Task.objects.count(), 1)
-
-    def test_create_takes_project_from_the_url_and_author_from_the_user(self):
-        self.client.post(self.url, self._payload(), format="json")
-
-        task = Task.objects.get()
-
-        self.assertEqual(task.project_id, self.project.pk)
-        self.assertEqual(task.created_by_id, self.user.pk)
-
-    def test_create_ignores_a_forged_author_or_organisation(self):
-        """The body must not be able to reassign ownership."""
-
-        payload = self._payload(
-            created_by=self.other_user.pk,
-            project=999,
-            organisation_id=self.other_org.pk,
-        )
-
-        response = self.client.post(self.url, payload, format="json")
-        task = Task.objects.get()
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(task.created_by_id, self.user.pk)
-        self.assertEqual(task.project_id, self.project.pk)
-
-    def test_create_strips_surrounding_whitespace_from_the_title(self):
-        response = self.client.post(
-            self.url,
-            self._payload(title="   Padded title   "),
-            format="json",
-        )
-
-        self.assertEqual(response.data["title"], "Padded title")
-
-    def test_create_accepts_a_null_description(self):
-        response = self.client.post(
-            self.url,
-            self._payload(description=None),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    # ------------------------------------------------- API 06, validation
-
-    def test_create_rejects_a_missing_lookup(self):
-        response = self.client.post(
-            self.url,
-            {"title": "No lookups supplied"},
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-        for field in ("task_type_id", "status_id", "priority_id", "assignee_id"):
-            self.assertIn(field, response.data)
-
-    def test_create_rejects_a_lookup_id_that_does_not_exist(self):
-        response = self.client.post(
-            self.url,
-            self._payload(task_type_id=999999),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("task_type_id", response.data)
-
-    def test_create_rejects_a_blank_title(self):
-        response = self.client.post(
-            self.url,
-            self._payload(title="   "),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("title", response.data)
-
-    def test_create_rejects_a_title_over_200_characters(self):
-        response = self.client.post(
-            self.url,
-            self._payload(title="x" * 201),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("title", response.data)
-
-    def test_create_rejects_a_due_date_before_the_start_date(self):
-        response = self.client.post(
-            self.url,
-            self._payload(start_date="2026-10-20", due_date="2026-10-01"),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("due_date", response.data)
-
-    def test_create_rejects_non_numeric_estimated_hours(self):
-        response = self.client.post(
-            self.url,
-            self._payload(estimated_hours="four"),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("estimated_hours", response.data)
-
-    # ------------------------------------------------- API 06, assignment
-
-    def test_create_also_writes_the_assignment_row(self):
-        """"Create and assign" means both rows, not just the task."""
-
-        self.client.post(self.url, self._payload(), format="json")
-
-        task = Task.objects.get()
-        assignment = TaskAssignee.objects.get()
-
-        self.assertEqual(assignment.task_id, task.pk)
-        self.assertEqual(assignment.user_id, self.assignee.pk)
-        self.assertEqual(assignment.assigned_by_id, self.user.pk)
-        self.assertIsNone(assignment.assignment_role)
-
-    def test_the_201_response_includes_the_assignee(self):
-        """The caller should not have to call API 07 to see what it just did."""
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(
-            response.data["assignees"],
-            [
-                {
-                    "user_id": self.assignee.pk,
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "assignment_role": None,
-                }
-            ],
-        )
-
-    def test_the_assignee_shape_carries_no_account_fields(self):
-        """Names and ids only. The email and password hash are one foreign key
-        away from this serializer, so the absence is asserted rather than
-        assumed."""
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        assignee = response.data["assignees"][0]
-
-        for leaked in ("email", "password", "password_hash", "role", "status"):
-            self.assertNotIn(leaked, assignee)
-
-    def test_create_rejects_a_missing_assignee(self):
-        payload = self._payload()
-        payload.pop("assignee_id")
-
-        response = self.client.post(self.url, payload, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("assignee_id", response.data)
-
-    def test_create_rejects_an_assignee_who_does_not_exist(self):
-        response = self.client.post(
-            self.url,
-            self._payload(assignee_id=999999),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("assignee_id", response.data)
-
-    def test_create_rejects_an_assignee_from_another_organisation(self):
-        response = self.client.post(
-            self.url,
-            self._payload(assignee_id=self.other_user.pk),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("assignee_id", response.data)
-
-    def test_create_rejects_an_assignee_who_is_not_a_project_member(self):
-        """Same organisation is not enough; the assignee must be on the project."""
-
-        response = self.client.post(
-            self.url,
-            self._payload(assignee_id=self.outsider.pk),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("assignee_id", response.data)
-
-    def test_a_rejected_assignee_leaves_no_task_behind(self):
-        """The task and the assignment are written together or not at all."""
-
-        self.client.post(
-            self.url,
-            self._payload(assignee_id=self.outsider.pk),
-            format="json",
-        )
-
-        self.assertEqual(Task.objects.count(), 0)
-        self.assertEqual(TaskAssignee.objects.count(), 0)
-
-    # ----------------------------------------------- API 06, role restriction
-
-    def test_a_manager_can_create_a_task(self):
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_an_admin_can_create_a_task(self):
-        self.client.force_authenticate(user=self.admin)
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_an_employee_cannot_create_a_task(self):
-        """403 rather than 404: this is about the caller, not the project."""
-
-        self.client.force_authenticate(user=self.assignee)
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Task.objects.count(), 0)
-
-    def test_an_employee_can_still_list_tasks(self):
-        """The role rule is scoped to creating, not to reading."""
-
-        self.client.post(self.url, self._payload(), format="json")
-        self.client.force_authenticate(user=self.assignee)
-
-        response = self.client.get(self.url)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-
-    # --------------------------------------------------------- API 07
+    Tasks are set up by posting to API 06 rather than by writing rows with the
+    ORM, so what is listed is what the create service actually produced. A bug
+    that made the two disagree would fail here rather than hide.
+    """
 
     def test_list_returns_only_the_tasks_of_the_project_in_the_url(self):
         other_project = Project.objects.create(
@@ -450,6 +299,23 @@ class ProjectTaskApiTests(TestCase):
             ],
         )
 
+    def test_list_keeps_the_decimal_and_datetime_wire_format(self):
+        """The ORM is gone, so the contract's own formatting is asserted.
+
+        estimated_hours has to stay a string with two decimal places, and the
+        timestamps have to stay UTC with a trailing Z. A raw value straight
+        from the driver would render the first as a float.
+        """
+
+        self.client.post(self.url, self._payload(), format="json")
+
+        row = self.client.get(self.url).data[0]
+
+        self.assertEqual(row["estimated_hours"], "4.50")
+        self.assertIsNone(row["actual_hours"])
+        self.assertEqual(row["start_date"], "2026-10-01")
+        self.assertTrue(row["created_at"].endswith("Z"))
+
     def test_list_of_a_project_with_no_tasks_is_an_empty_200(self):
         """An empty project is a success with nothing in it, not a 404."""
 
@@ -477,6 +343,17 @@ class ProjectTaskApiTests(TestCase):
             [row["title"] for row in response.data],
             ["Third", "Second", "First"],
         )
+
+    def test_an_employee_can_still_list_tasks(self):
+        """The role rule is scoped to creating, not to reading."""
+
+        self.client.post(self.url, self._payload(), format="json")
+        self.client.force_authenticate(user=self.assignee)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
 
     # --------------------------------------------------- API 07, filtering
 
@@ -606,14 +483,6 @@ class ProjectTaskApiTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_same_organisation_non_member_cannot_create_a_task(self):
-        self.client.force_authenticate(user=self.outsider)
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(Task.objects.count(), 0)
-
     def test_another_organisation_cannot_list_this_projects_tasks(self):
         """404 rather than 403, so the project's existence is not confirmed."""
 
@@ -622,14 +491,6 @@ class ProjectTaskApiTests(TestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_another_organisation_cannot_create_a_task_here(self):
-        self.client.force_authenticate(user=self.other_user)
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(Task.objects.count(), 0)
 
     def test_an_unknown_project_is_404(self):
         response = self.client.get(reverse("project-tasks", args=[999999]))
@@ -647,19 +508,4 @@ class ProjectTaskApiTests(TestCase):
             self.client.post(self.url, self._payload(), format="json").status_code,
             (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
         )
-
-    # ------------------------------------------------------------- routing
-
-    def test_the_route_has_no_trailing_slash(self):
-        """A trailing slash is a clean 404, not a redirect that drops the body.
-
-        APPEND_SLASH only redirects when the slashed form matches a route.
-        Here the unslashed form is the one registered, so nothing redirects
-        and a POST body can never be silently lost.
-        """
-
-        self.assertFalse(self.url.endswith("/"))
-
-        response = self.client.post(self.url + "/", self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(Task.objects.count(), 0)

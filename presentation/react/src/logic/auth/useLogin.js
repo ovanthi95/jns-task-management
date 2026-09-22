@@ -1,6 +1,8 @@
 // #login implemented by Ovanthi- 25298714
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { login } from 'services/auth/loginService';
 
 export function useLogin() {
   const [email, setEmail] = useState('');
@@ -8,7 +10,9 @@ export function useLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const [success, setSuccess] = useState('');
+  
+  const navigate = useNavigate();
   const togglePassword = () => {
     setShowPassword((current) => !current);
   };
@@ -17,13 +21,16 @@ export function useLogin() {
     event.preventDefault();
 
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
-      // API 01 will be connected here after the login backend is ready.
-      console.log('Login submitted:', email);
-    } catch {
-      setError('Unable to sign in. Please try again.');
+      const data = await login(email, password);
+
+      setSuccess(data.message || 'Login successful.');
+      navigate('/dashboard');
+    } catch (error) {
+      setError(error.message || 'Unable to sign in. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -35,6 +42,7 @@ export function useLogin() {
     showPassword,
     loading,
     error,
+    success,
     setEmail,
     setPassword,
     togglePassword,

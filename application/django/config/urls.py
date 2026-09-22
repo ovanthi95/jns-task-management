@@ -23,4 +23,6 @@ urlpatterns = [
     # The agreed REST list is served under /api/ with no version segment.
     # Each app registers its own routes; this file only mounts them.
     path('api/', include('tasks.urls')),
+    path('api/', include('projects.urls')),
 ]
+

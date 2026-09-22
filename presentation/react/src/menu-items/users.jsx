@@ -18,6 +18,13 @@ const users = {
       type: 'item',
       icon: 'ph ph-user-plus',
       url: '/users/new'
+    },
+    {
+      id: 'kanban',
+      title: 'Kanban',
+      type: 'item',
+      icon: 'ph ph-kanban',
+      url: '/kanban'
     }
   ]
 };

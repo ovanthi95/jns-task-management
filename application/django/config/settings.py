@@ -157,8 +157,34 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Cross-origin access from the React dev server
+# https://github.com/adamchainz/django-cors-headers
+
+# The React dev server runs on 3000, which vite.config.mjs pins. 5173 is
+# Vite's own default and was never the port this project uses, so both are
+# listed rather than one being swapped for the other: nothing is taken away
+# from anyone still running on 5173.
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+# The front end sends its requests with `credentials: 'include'`, because the
+# API identifies the caller by the session cookie. Without this the browser
+# strips the cookie on a cross-origin request and every call is anonymous.
+CORS_ALLOW_CREDENTIALS = True
+
+# A cross-origin POST is also checked by the CSRF middleware, which compares
+# the Origin header against this list. The cookie alone is not enough.
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 AUTH_USER_MODEL = 'users.User'

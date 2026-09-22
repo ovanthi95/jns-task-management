@@ -1,0 +1,5 @@
+-- API 05
+-- Owner: Jesse
+-- Endpoint: GET /api/projects
+-- Stored procedure: sp_get_projects
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

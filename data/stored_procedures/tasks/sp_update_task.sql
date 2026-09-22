@@ -1,0 +1,5 @@
+-- API 08
+-- Owner: Ovanthi
+-- Endpoint: PATCH /api/tasks/:taskId
+-- Stored procedure: sp_update_task
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

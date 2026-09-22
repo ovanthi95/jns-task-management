@@ -1,0 +1,5 @@
+-- API 06
+-- Owner: Edward
+-- Endpoint: POST /api/projects/:projectId/tasks
+-- Stored procedure: sp_create_task
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

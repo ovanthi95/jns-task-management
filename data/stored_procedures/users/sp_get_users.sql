@@ -1,0 +1,5 @@
+-- API 02
+-- Owner: Manatka
+-- Endpoint: GET /api/users
+-- Stored procedure: sp_get_users
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

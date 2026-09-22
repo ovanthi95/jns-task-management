@@ -1,0 +1,5 @@
+-- API 01
+-- Owner: Ovanthi
+-- Endpoint: POST /api/auth/login
+-- Stored procedure: sp_get_login_user
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

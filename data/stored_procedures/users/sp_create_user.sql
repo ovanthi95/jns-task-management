@@ -1,0 +1,5 @@
+-- API 03
+-- Owner: Manatka
+-- Endpoint: POST /api/users
+-- Stored procedure: sp_create_user
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

@@ -1,0 +1,5 @@
+-- API 09
+-- Owner: Ovanthi
+-- Endpoint: POST /api/tasks/:taskId/comments
+-- Stored procedure: sp_add_comment
+-- TODO: implement and test this procedure before deploying it to MySQL/RDS.

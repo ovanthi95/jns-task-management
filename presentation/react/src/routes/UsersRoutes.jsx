@@ -6,6 +6,7 @@ import Loadable from 'components/Loadable';
 
 // render - users pages
 const UserList = Loadable(lazy(() => import('views/users/UserList')));
+const UserCreate = Loadable(lazy(() => import('views/users/UserCreate')));
 
 // ==============================|| USERS ROUTING (API 02 / API 03) ||============================== //
 
@@ -19,6 +20,10 @@ const UsersRoutes = {
         {
           path: 'users',
           element: <UserList />
+        },
+        {
+          path: 'users/new',
+          element: <UserCreate />
         }
       ]
     }

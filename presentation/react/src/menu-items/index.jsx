@@ -6,11 +6,12 @@ import pages from './pages';
 import uiComponents from './ui-components';
 import tableRoutes from './tables';
 import navigation from './navigation';
+import users from './users';
 
 // ==============================|| MENU ITEMS ||============================== //
 
 const menuItems = {
-  items: [navigation, uiComponents, formComponents, tableRoutes, chartsMaps, pages, other]
+  items: [navigation, users, uiComponents, formComponents, tableRoutes, chartsMaps, pages, other]
 };
 
 export default menuItems;

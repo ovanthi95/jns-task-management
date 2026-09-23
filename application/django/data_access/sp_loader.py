@@ -37,6 +37,10 @@ def _statements_from_sql(sql_text):
     Split on "$$" FIRST. The "DELIMITER $$" line itself contains the token, so
     the CREATE PROCEDURE body lands in its own chunk, separate from the
     DROP statement before it. Only then are the DELIMITER lines discarded.
+
+    Outside a procedure body, "--" comment lines are dropped before splitting
+    on ";" so a semicolon inside a comment cannot produce a bogus statement.
+    Inside CREATE PROCEDURE the server parses comments itself.
     """
 
     statements = []
@@ -52,15 +56,20 @@ def _statements_from_sql(sql_text):
         if not statement:
             continue
 
-        # A chunk that is a procedure body contains ";" inside BEGIN...END and
-        # must stay whole. Any other chunk may hold several ";"-terminated
-        # statements (comments, DROP PROCEDURE IF EXISTS).
         if statement.upper().startswith("CREATE PROCEDURE"):
             statements.append(statement)
-        else:
-            statements.extend(
-                part.strip() for part in statement.split(";") if part.strip()
-            )
+            continue
+
+        code_lines = [
+            line for line in kept_lines
+            if line.strip() and not line.strip().startswith("--")
+        ]
+
+        for part in "\n".join(code_lines).split(";"):
+            part = part.strip()
+
+            if part:
+                statements.append(part)
 
     return statements
 

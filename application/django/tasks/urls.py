@@ -17,11 +17,17 @@ dropped in a redirect. test_the_route_has_no_trailing_slash asserts this.
 from django.urls import path
 
 from .views import ProjectTaskListCreateView
+from tasks.api.file_upload import FileUploadView
 
 urlpatterns = [
     path(
         "projects/<int:project_id>/tasks",
         ProjectTaskListCreateView.as_view(),
         name="project-tasks",
+    ),
+    path(
+        "tasks/<int:task_id>/files",
+        FileUploadView.as_view(),
+        name="task-files",
     ),
 ]

@@ -15,6 +15,7 @@ export default function LoginPage() {
     showPassword,
     loading,
     error,
+    success,
     setEmail,
     setPassword,
     togglePassword,
@@ -113,6 +114,11 @@ export default function LoginPage() {
                   {error && (
                     <div className="alert alert-danger" role="alert">
                       {error}
+                    </div>
+                  )}
+                  {success && (
+                    <div className="alert alert-success" role="alert">
+                      {success}
                     </div>
                   )}
 

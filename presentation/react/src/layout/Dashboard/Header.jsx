@@ -1,6 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-
+import { Link, useNavigate } from 'react-router-dom';
 // react-bootstrap
 import Button from 'react-bootstrap/Button';
 import Dropdown from 'react-bootstrap/Dropdown';
@@ -13,7 +12,7 @@ import Stack from 'react-bootstrap/Stack';
 import MainCard from 'components/MainCard';
 import SimpleBarScroll from 'components/third-party/SimpleBar';
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
-
+import { logout } from 'services/auth/logoutService';
 // assets
 import Img1 from 'assets/images/user/avatar-1.png';
 import Img2 from 'assets/images/user/avatar-2.png';
@@ -68,9 +67,19 @@ const notifications = [
 // =============================|| MAIN LAYOUT - HEADER ||============================== //
 
 export default function Header() {
+  const navigate = useNavigate();
+
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster?.isDashboardDrawerOpened;
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
   return (
     <header className="pc-header">
       <div className="header-wrapper">
@@ -201,7 +210,7 @@ export default function Header() {
                       Change Password
                     </Dropdown.Item>
                     <div className="d-grid my-2">
-                      <Button>
+                      <Button onClick={handleLogout}>
                         <i className="ph ph-sign-out align-middle me-2" />
                         Logout
                       </Button>

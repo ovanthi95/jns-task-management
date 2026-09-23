@@ -9,4 +9,5 @@ urlpatterns = [
     # Each app registers its own routes; this file only mounts them.
     path('api/', include('users.urls')),
     path('api/', include('tasks.urls')),
+    path('api/', include('projects.urls')),
 ]

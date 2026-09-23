@@ -9,11 +9,12 @@ import PagesRoutes from './PagesRoutes';
 import NavigationRoutes from './NavigationRoutes';
 import TablesRoutes from './TablesRoutes';
 import UsersRoutes from './UsersRoutes';
+import TaskFilesRoutes from './TaskFilesRoutes';
 
 // ==============================|| ROUTING RENDER ||============================== //
 
 const router = createBrowserRouter(
-  [NavigationRoutes, ComponentsRoutes, FormsRoutes, TablesRoutes, PagesRoutes, OtherRoutes, ChartMapRoutes, UsersRoutes],
+  [NavigationRoutes, ComponentsRoutes, FormsRoutes, TablesRoutes, PagesRoutes, OtherRoutes, ChartMapRoutes, UsersRoutes, TaskFilesRoutes],
   {
     basename: import.meta.env.VITE_APP_BASE_NAME
   }

@@ -7,6 +7,7 @@ import RequireAuth from './RequireAuth';
 
 // render - users pages (API 02 / API 03)
 const UserList = Loadable(lazy(() => import('views/users/UserList')));
+const UserCreate = Loadable(lazy(() => import('views/users/UserCreate')));
 
 const UsersRoutes = {
   path: '/',
@@ -22,6 +23,10 @@ const UsersRoutes = {
         {
           path: '',
           element: <UserList />
+        },
+        {
+          path: 'new',
+          element: <UserCreate />
         }
       ]
     }

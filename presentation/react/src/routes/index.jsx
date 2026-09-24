@@ -11,11 +11,37 @@ import TablesRoutes from './TablesRoutes';
 import TasksRoutes from './TasksRoutes';
 import UsersRoutes from './UsersRoutes';
 import TaskFilesRoutes from './TaskFilesRoutes';
+import NotFound from 'views/errors/NotFound';
+import BadRequest from 'views/errors/BadRequest';
+import Timeout from 'views/errors/Timeout';
 
 // ==============================|| ROUTING RENDER ||============================== //
 
 const router = createBrowserRouter(
-  [NavigationRoutes, ComponentsRoutes, FormsRoutes, TablesRoutes, TasksRoutes, PagesRoutes, OtherRoutes, ChartMapRoutes, UsersRoutes, TaskFilesRoutes],
+  [
+    {
+      path: '/error/400',
+      element: <BadRequest />
+    },
+    {
+      path: '/error/timeout',
+      element: <Timeout />
+    },
+    NavigationRoutes,
+    ComponentsRoutes,
+    FormsRoutes,
+    TablesRoutes,
+    TasksRoutes,
+    PagesRoutes,
+    OtherRoutes,
+    ChartMapRoutes,
+    UsersRoutes,
+    TaskFilesRoutes,
+    {
+      path: '*',
+      element: <NotFound />
+    }
+  ],
   {
     basename: import.meta.env.VITE_APP_BASE_NAME
   }

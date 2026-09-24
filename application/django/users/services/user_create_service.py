@@ -1,6 +1,69 @@
-"""API 03 - User creation application logic
+# API 03 - User create
+# Owner: Manatka
 
-Owner: Manatka
-Application/business logic belongs here.
-This service may call one or more data-access functions.
-"""
+from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError, transaction
+
+from data_access.users.create_user import create_user
+
+USER_CREATE_ROLES = frozenset({"admin"})
+
+# MySQL error numbers surfaced through IntegrityError.args[0]
+MYSQL_DUPLICATE_ENTRY = 1062
+MYSQL_FK_FAILS = 1452
+
+
+class UserCreateValidationError(Exception):
+    """A 400 with per-field messages, e.g. {"email": ["..."]}."""
+
+    def __init__(self, field_errors):
+        super().__init__("Validation failed")
+        self.field_errors = field_errors
+
+
+def can_create_user(session_user):
+    role_name = (session_user or {}).get("role_name") or ""
+
+    return role_name.lower() in USER_CREATE_ROLES
+
+
+def create_user_in_organisation(session_user, data):
+    """Create a user in the caller's organisation.
+
+    - organisation_id comes from the session user, never from `data`.
+    - The plain password is hashed here; only the hash reaches the procedure.
+    - Duplicate (organisation, email) and unknown role become field errors,
+      without exposing SQL text. The insert runs in a savepoint so a failed
+      insert cannot poison the surrounding transaction.
+    """
+
+    if not can_create_user(session_user):
+        raise PermissionError("Your role is not permitted to create users.")
+
+    password_hash = make_password(data["password"])
+
+    try:
+        with transaction.atomic():
+            return create_user(
+                organisation_id=session_user["organisation_id"],
+                role_id=data["role_id"],
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                email=data["email"],
+                password_hash=password_hash,
+                availability=data.get("availability") or None,
+            )
+    except IntegrityError as exc:
+        code = exc.args[0] if exc.args else None
+
+        if code == MYSQL_DUPLICATE_ENTRY:
+            raise UserCreateValidationError(
+                {"email": ["A user with this email already exists in your organisation."]}
+            ) from exc
+
+        if code == MYSQL_FK_FAILS:
+            raise UserCreateValidationError(
+                {"role_id": ["Unknown role."]}
+            ) from exc
+
+        raise

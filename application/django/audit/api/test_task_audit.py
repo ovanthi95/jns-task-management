@@ -29,7 +29,7 @@ class TaskAuditApiTests(TestCase):
     def setUp(self):
         self.role = Role.objects.create(role_name="Employee")
         self.org = Organisation.objects.create(
-            organisation_name="JNS",
+            organisation_name="JNS Business Solutions",
             organisation_type="SME",
             email="info@jns.test",
             phone="09-000-0000",

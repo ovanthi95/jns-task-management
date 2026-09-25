@@ -188,3 +188,11 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 AUTH_USER_MODEL = 'users.User'
+
+
+# DRF uses the same user_id session created by API 01.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "users.authentication.JNSSessionAuthentication",
+    ],
+}

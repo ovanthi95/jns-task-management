@@ -1,13 +1,7 @@
 // API 07 UI - Task list
 // Owner: Edward
-//
-// Markup only. Loading, filtering and error handling live in useTaskList.
-//
-// The create form is rendered on the same page and handed a callback, so a
-// task created through API 06 appears in the API 07 list without a reload.
-// That is also what makes the two services demonstrable in one screen.
 
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 // react-bootstrap
 import Alert from 'react-bootstrap/Alert';
@@ -23,8 +17,6 @@ import Table from 'react-bootstrap/Table';
 import MainCard from 'components/MainCard';
 import { useTaskList } from 'logic/tasks/useTaskList';
 import TaskCreate from './TaskCreate';
-
-// ==============================|| TASKS - LIST (API 07) ||============================== //
 
 export default function TaskList() {
   const { projectId } = useParams();
@@ -98,6 +90,7 @@ export default function TaskList() {
                   <th>Assignees</th>
                   <th>Due</th>
                   <th className="text-end">Est. hrs</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -110,9 +103,15 @@ export default function TaskList() {
                     <td>{task.priority_name}</td>
                     <td>{assigneeNames(task.assignees)}</td>
                     <td>{task.due_date || '—'}</td>
-                    {/* estimated_hours arrives as a string ("4.50"). It is
-                        printed as it came so the two decimals survive. */}
                     <td className="text-end">{task.estimated_hours || '—'}</td>
+                    <td>
+                      <Link
+                        to={`/projects/${projectId}/tasks/${task.task_id}/edit`}
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        Edit
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

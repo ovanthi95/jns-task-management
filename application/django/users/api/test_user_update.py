@@ -22,7 +22,7 @@ class UserUpdateApiTests(TestCase):
         self.manager_role = Role.objects.create(role_name="Manager")
         self.employee_role = Role.objects.create(role_name="Employee")
 
-        self.org = self._organisation("JNS")
+        self.org = self._organisation("JNS Business Solutions")
         self.other_org = self._organisation("Other")
 
         self.admin = self._user(

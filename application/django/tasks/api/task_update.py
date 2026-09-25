@@ -1,13 +1,7 @@
-"""API 08 - PATCH /api/tasks/:taskId.
+"""API 08 - PATCH /api/tasks/:taskId."""
 
-The login implementation stores user_id in the Django session, so this endpoint
-uses the same session service as API 01 rather than relying on request.user.
-"""
-
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_protect
 from rest_framework import serializers, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,7 +12,6 @@ from tasks.services.task_update_service import (
     TaskUpdateNotPermitted,
     update_task_details,
 )
-from users.services.session_service import get_authenticated_session_user
 
 
 class TaskUpdateSerializer(serializers.Serializer):
@@ -69,28 +62,21 @@ class TaskUpdateSerializer(serializers.Serializer):
         return attrs
 
 
-@method_decorator(csrf_protect, name="dispatch")
 class TaskUpdateView(APIView):
-    authentication_classes = []
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request, task_id):
-        actor = get_authenticated_session_user(
-            request.session.get("user_id")
-        )
-
-        if actor is None:
-            request.session.flush()
-            return Response(
-                {"detail": "Not authenticated."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
         serializer = TaskUpdateSerializer(
             data=request.data,
             partial=True,
         )
         serializer.is_valid(raise_exception=True)
+
+        actor = {
+            "user_id": request.user.user_id,
+            "organisation_id": request.user.organisation_id,
+            "role_name": request.user.role.role_name,
+        }
 
         try:
             task = update_task_details(

@@ -1,5 +1,6 @@
 """API 08 - PATCH /api/tasks/:taskId."""
 
+from django.db import DatabaseError
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -99,8 +100,40 @@ class TaskUpdateView(APIView):
                 error.errors,
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except DatabaseError as error:
+            return _database_error_response(error)
 
         return Response(
             TaskSerializer(task).data,
             status=status.HTTP_200_OK,
         )
+
+
+def _database_error_response(error):
+    """Map defensive stored-procedure validation to the public API shape."""
+    message = str(error).lower()
+
+    if "task not found" in message:
+        return Response(
+            {"detail": "Not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    mappings = (
+        ("task title is required", "title", "Task title is required."),
+        ("invalid task type", "task_type_id", "No active task type with that id."),
+        ("invalid priority", "priority_id", "No active priority with that id."),
+        ("invalid assignee", "assignee_id", "That user cannot be assigned to this project."),
+        ("invalid estimated hours", "estimated_hours", "Estimated hours cannot be negative."),
+        ("due date cannot be before start date", "due_date", "Due date cannot be before the start date."),
+        ("invalid task status", "status_id", "No active status with that id."),
+    )
+
+    for needle, field, detail in mappings:
+        if needle in message:
+            return Response(
+                {field: [detail]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    raise error

@@ -16,6 +16,8 @@ from tasks.services.task_update_service import (
 
 
 class TaskUpdateSerializer(serializers.Serializer):
+    """Only fields explicitly owned by API 08 may be patched."""
+
     title = serializers.CharField(
         max_length=200,
         trim_whitespace=True,
@@ -39,6 +41,18 @@ class TaskUpdateSerializer(serializers.Serializer):
         allow_null=True,
     )
     status_id = serializers.IntegerField(min_value=1, required=False)
+
+    def to_internal_value(self, data):
+        if hasattr(data, "keys"):
+            forbidden = sorted(set(data.keys()) - set(self.fields.keys()))
+
+            if forbidden:
+                raise serializers.ValidationError({
+                    field: ["This field cannot be updated."]
+                    for field in forbidden
+                })
+
+        return super().to_internal_value(data)
 
     def validate(self, attrs):
         if not attrs:

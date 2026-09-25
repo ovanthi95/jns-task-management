@@ -58,6 +58,10 @@ jobs:
         working-directory: application/django
         run: python manage.py test tasks.api.test_task_update --verbosity 2
 
+      - name: Run full Django regression suite
+        working-directory: application/django
+        run: python manage.py test --verbosity 1
+
   frontend:
     name: React build
     runs-on: ubuntu-latest
@@ -76,6 +80,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: presentation/react
         run: npm ci
+
+      - name: Lint React app
+        working-directory: presentation/react
+        run: npm run lint
 
       - name: Build React app
         working-directory: presentation/react

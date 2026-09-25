@@ -1,6 +1,9 @@
-"""API 11 data access
+"""API 11 task audit persistence."""
 
-Owner: Ovanthi
-This module must call exactly one stored procedure: sp_get_task_audit.
-Do not put application/business logic here.
-"""
+from data_access.tasks._procedure import call_procedure
+
+PROCEDURE_NAME = "sp_get_task_audit"
+
+
+def get_task_audit(*, task_id):
+    return call_procedure(PROCEDURE_NAME, [task_id])

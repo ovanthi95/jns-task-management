@@ -32,44 +32,55 @@ DELIMITER_TOKEN = "$$"
 
 
 def _statements_from_sql(sql_text):
-    """Split a DELIMITER $$ style file into executable statements.
+    """Return executable statements from mysql-client DELIMITER files.
 
-    Split on "$$" FIRST. The "DELIMITER $$" line itself contains the token, so
-    the CREATE PROCEDURE body lands in its own chunk, separate from the
-    DROP statement before it. Only then are the DELIMITER lines discarded.
+    The merged repository contains both `DELIMITER $` and `DELIMITER $$`
+    procedure files. DELIMITER is a mysql command-line directive, not SQL, so
+    it must be interpreted here rather than sent to the server.
 
-    Outside a procedure body, "--" comment lines are dropped before splitting
-    on ";" so a semicolon inside a comment cannot produce a bogus statement.
-    Inside CREATE PROCEDURE the server parses comments itself.
+    Parsing line-by-line also avoids splitting on ordinary semicolons inside a
+    CREATE PROCEDURE body.
     """
 
+    delimiter = ";"
+    buffer = []
     statements = []
 
-    for chunk in sql_text.split(DELIMITER_TOKEN):
-        kept_lines = [
-            line for line in chunk.splitlines()
-            if not line.strip().upper().startswith("DELIMITER")
-        ]
+    def flush():
+        text = "\n".join(buffer).strip()
 
-        statement = "\n".join(kept_lines).strip()
+        if text:
+            statements.append(text)
 
-        if not statement:
+        buffer.clear()
+
+    for raw_line in sql_text.splitlines():
+        stripped = raw_line.strip()
+
+        if stripped.upper().startswith("DELIMITER "):
+            if buffer:
+                flush()
+
+            delimiter = stripped.split(None, 1)[1]
             continue
 
-        if statement.upper().startswith("CREATE PROCEDURE"):
-            statements.append(statement)
+        if not stripped or stripped.startswith("--"):
             continue
 
-        code_lines = [
-            line for line in kept_lines
-            if line.strip() and not line.strip().startswith("--")
-        ]
+        buffer.append(raw_line)
 
-        for part in "\n".join(code_lines).split(";"):
-            part = part.strip()
+        text = "\n".join(buffer).rstrip()
 
-            if part:
-                statements.append(part)
+        if delimiter and text.endswith(delimiter):
+            text = text[: -len(delimiter)].rstrip()
+
+            if text:
+                statements.append(text)
+
+            buffer.clear()
+
+    if buffer:
+        flush()
 
     return statements
 

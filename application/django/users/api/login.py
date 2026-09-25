@@ -2,6 +2,7 @@
 # Owner: Ovanthi
 # POST /api/auth/login
 
+from django.middleware.csrf import get_token
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -40,6 +41,9 @@ class LoginView(APIView):
         # Create a fresh session for the authenticated user
         request.session.cycle_key()
         request.session["user_id"] = user["user_id"]
+
+        # The React write services echo this cookie in X-CSRFToken.
+        get_token(request)
 
         return Response(
             {

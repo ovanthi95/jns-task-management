@@ -1,16 +1,14 @@
 import { lazy } from 'react';
 
-// project-imports
 import DashboardLayout from 'layout/Dashboard';
 import Loadable from 'components/Loadable';
 import RequireAuth from './RequireAuth';
 
-// render - task pages
 const TaskListPage = Loadable(lazy(() => import('views/tasks/TaskList')));
 const TaskCreatePage = Loadable(lazy(() => import('views/tasks/TaskCreate')));
 const TaskEditPage = Loadable(lazy(() => import('views/tasks/TaskEdit')));
-
-// ==============================|| TASK ROUTING ||============================== //
+const TaskCommentsPage = Loadable(lazy(() => import('views/tasks/TaskComments')));
+const TaskAuditPage = Loadable(lazy(() => import('views/tasks/TaskAudit')));
 
 const TasksRoutes = {
   path: '/',
@@ -34,6 +32,14 @@ const TasksRoutes = {
         {
           path: 'projects/:projectId/tasks/:taskId/edit',
           element: <TaskEditPage />
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId/comments',
+          element: <TaskCommentsPage />
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId/audit',
+          element: <TaskAuditPage />
         }
       ]
     }

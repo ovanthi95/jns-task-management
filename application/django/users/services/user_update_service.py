@@ -1,6 +1,11 @@
-"""API 12 - User update application logic
+"""API 12 user update application logic."""
 
-Owner: Ovanthi
-Application/business logic belongs here.
-This service may call one or more data-access functions.
-"""
+from data_access.users.update_user import update_user
+
+
+def edit_user(*, organisation_id, user_id, changes):
+    return update_user(
+        user_id=user_id,
+        organisation_id=organisation_id,
+        changes=changes,
+    )

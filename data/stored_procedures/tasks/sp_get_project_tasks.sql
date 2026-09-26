@@ -30,7 +30,7 @@
 
 DROP PROCEDURE IF EXISTS sp_get_project_tasks;
 
-DELIMITER $
+DELIMITER $$
 
 CREATE PROCEDURE sp_get_project_tasks (
     IN p_project_id  INT,
@@ -98,6 +98,6 @@ BEGIN
             )
           )
     ORDER BY t.created_at DESC, t.task_id DESC;
-END$
+END $$
 
 DELIMITER ;

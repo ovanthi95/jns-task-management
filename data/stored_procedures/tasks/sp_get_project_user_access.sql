@@ -35,7 +35,7 @@
 
 DROP PROCEDURE IF EXISTS sp_get_project_user_access;
 
-DELIMITER $
+DELIMITER $$
 
 CREATE PROCEDURE sp_get_project_user_access (
     IN p_project_id INT,
@@ -57,6 +57,6 @@ BEGIN
     LEFT JOIN users u
            ON u.user_id = p_user_id
     WHERE p.project_id = p_project_id;
-END$
+END $$
 
 DELIMITER ;

@@ -5,7 +5,8 @@ lookup validation, assignment rules and the stored-procedure write. This HTTP
 layer adds only the optional post-create email notification.
 """
 
-from rest_framework import permissions, status
+from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,33 +19,56 @@ from ..services.exceptions import (
 )
 from ..services.task_notification_service import send_task_assignment_email
 from users.services.permission_service import actor_has_permission
-from users.services.session_service import get_authenticated_session_user
 
+from ._session import not_authenticated, session_user
 
-class CanCreateTask(permissions.BasePermission):
-    message = "Your role is not permitted to create tasks."
-
-    def has_permission(self, request, view):
-        if request.method != "POST":
-            return True
-        return task_create_service.user_may_create_task(request.user)
+ROLE_NOT_PERMITTED = "Your role is not permitted to create tasks."
 
 
 class TaskCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated, CanCreateTask]
+    """API 06.
+
+    authentication_classes is emptied and the caller is read out of the
+    session instead, which is the convention APIs 02, 03, 04, 05 and 10
+    already follow. tasks/api/_session.py explains why request.user cannot be
+    used here.
+
+    The route-level CanCreateTask permission class this view used to carry is
+    gone with it: a DRF permission class is handed request.user, which is
+    always AnonymousUser under session auth, so it could never have answered
+    the question. The same rule is applied inside post() against the session
+    user instead.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request, project_id):
+        user = session_user(request)
+
+        if user is None:
+            return not_authenticated()
+
+        # The role is answered before the body is parsed, so a caller whose
+        # role is not permitted is told that rather than being told its body
+        # was malformed, which would be a hint about a service it cannot use.
+        if not task_create_service.user_may_create_task(user):
+            return Response(
+                {"detail": ROLE_NOT_PERMITTED},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = TaskCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         data = dict(serializer.validated_data)
         notify_assignee = bool(data.pop("notify_assignee", False))
 
-        actor = get_authenticated_session_user(request.user.user_id)
-
-        if notify_assignee and (
-            actor is None
-            or not actor_has_permission(actor, "send_task_notifications")
+        # `user` is already the session dict sp_get_session_user returned,
+        # so the notification permission is answered straight off it. The
+        # previous request.user.user_id lookup could not work here.
+        if notify_assignee and not actor_has_permission(
+            user, "send_task_notifications"
         ):
             return Response(
                 {"detail": "Task notification permission required."},
@@ -54,7 +78,7 @@ class TaskCreateView(APIView):
         try:
             task = task_create_service.create_task(
                 project_id=project_id,
-                user=request.user,
+                user=user,
                 data=data,
             )
         except ProjectNotVisible:
@@ -63,6 +87,9 @@ class TaskCreateView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         except RoleNotPermitted as error:
+            # The role gate above has already answered this for requests that
+            # come in over HTTP. Mapped here as well so the endpoint still
+            # behaves if the rule is ever tightened inside the service alone.
             return Response(
                 {"detail": error.message},
                 status=status.HTTP_403_FORBIDDEN,
@@ -82,7 +109,7 @@ class TaskCreateView(APIView):
                 response_data["email_sent"] = send_task_assignment_email(
                     task_id=task["task_id"],
                     assigned_by_name=(
-                        f"{request.user.first_name} {request.user.last_name}"
+                        f'{user["first_name"]} {user["last_name"]}'
                     ).strip(),
                 )
                 if not response_data["email_sent"]:

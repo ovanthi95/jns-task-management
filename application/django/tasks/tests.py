@@ -25,85 +25,51 @@ Loading the procedures
 ----------------------
 The test database is built by migrate, which creates tables and nothing else,
 so the procedures have to be loaded into it before any test runs. That is what
-load_task_procedures does, and it is called from setUpClass before the
+load_stored_procedures does, and it is called from setUpClass before the
 class-level transaction opens: CREATE PROCEDURE causes an implicit commit in
 MySQL, so running it inside a test would end the transaction that TestCase
 relies on to roll the test back.
 
-load_task_procedures is a stopgap. The playbook gives the generic loader to
-Manatka; when that lands, this function is deleted and setUpClass calls the
-shared one instead.
+load_stored_procedures is Manatka's shared loader (data_access/sp_loader.py).
+This module used to carry its own copy limited to the tasks/ folder; that copy
+is gone, which is also what the endpoints now need, because the caller is read
+through users/sp_get_session_user and the old loader could not reach outside
+tasks/.
+
+Signing a caller in
+-------------------
+These tests do not use force_authenticate. The task endpoints read the caller
+out of request.session, the way APIs 01 to 05 and 10 do, so a test that
+injected a user object would pass while a real browser session got a 401. The
+fixture's _login_as writes the session cookie instead, which is the same thing
+API 01 does on a successful login. tasks/api/_session.py has the reasoning.
 """
 
-from pathlib import Path
-
-from django.db import connection
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from data_access.sp_loader import load_stored_procedures
 from projects.models import Project, ProjectMember
 from users.models import Organisation, Role, User
 
 from .models import Priority, Task, TaskStatus, TaskType
+from .services.exceptions import ProjectNotVisible
+from .services.project_access import require_visible_project
 
-PROCEDURE_DIR = (
-    Path(__file__).resolve().parents[3]
-    / "data"
-    / "stored_procedures"
-    / "tasks"
-)
-
-# Only the procedures API 06 and API 07 call. The folder also holds stubs for
-# cards that belong to other people, and loading those would make this suite
-# fail for a reason that has nothing to do with these two endpoints.
+# Only the procedures API 06 and API 07 call, plus the session lookup every
+# request goes through. The tasks folder also holds stubs for cards that
+# belong to other people, and loading those would make this suite fail for a
+# reason that has nothing to do with these two endpoints.
 PROCEDURE_NAMES = (
-    "sp_create_task",
-    "sp_get_project_tasks",
-    "sp_get_project_user_access",
-    "sp_check_task_lookups",
+    "users/sp_get_session_user",
+    "tasks/sp_create_task",
+    "tasks/sp_get_project_tasks",
+    "tasks/sp_get_project_user_access",
+    "tasks/sp_check_task_lookups",
 )
-
-
-def load_task_procedures():
-    """Load the four procedures into whatever database is connected."""
-
-    if connection.vendor != "mysql":
-        raise RuntimeError(
-            "These tests require MySQL. The endpoints call stored procedures, "
-            "which SQLite cannot execute. Set DB_ENGINE=mysql."
-        )
-
-    with connection.cursor() as cursor:
-        for name in PROCEDURE_NAMES:
-            for statement in _statements(PROCEDURE_DIR / f"{name}.sql"):
-                cursor.execute(statement)
-
-
-def _statements(path):
-    """The statements in one .sql file, without the DELIMITER directives.
-
-    DELIMITER is a directive of the mysql command line client, not SQL, so the
-    driver cannot be handed the file as it stands. The lines are dropped and
-    the file is split on the $ they introduce, which leaves two statements:
-    the DROP and the CREATE.
-
-    This holds because these four files contain no other $. It is a loader for
-    the files in this folder, not a general SQL parser.
-    """
-
-    lines = [
-        line
-        for line in path.read_text().splitlines()
-        if not line.strip().upper().startswith("DELIMITER")
-    ]
-
-    for chunk in "\n".join(lines).split("$"):
-        statement = chunk.strip().rstrip(";").strip()
-
-        if statement:
-            yield statement
 
 
 class ProjectTaskFixture(TestCase):
@@ -119,6 +85,14 @@ class ProjectTaskFixture(TestCase):
         outsider   Manager, same organisation, deliberately NOT a member.
         other_user Manager in a different organisation entirely.
 
+    other_user cannot be signed in. sp_get_session_user only resolves a
+    session for a user whose organisation is literally named "JNS Business
+    Solutions", so a caller from another organisation gets a 401 before the
+    project is ever looked at. The cross-organisation rule is therefore
+    asserted the other way round - a JNS caller reaching for a project that
+    belongs to other_org - and once directly against the service, rather than
+    by pretending the procedure would hand out that session.
+
     Subclassed rather than mixed in, so a subclass inherits the procedure
     loading as well as the cast and cannot be written without it.
     """
@@ -127,7 +101,7 @@ class ProjectTaskFixture(TestCase):
     def setUpClass(cls):
         # Before super(), which opens the class-level transaction. See the
         # module docstring.
-        load_task_procedures()
+        load_stored_procedures(*PROCEDURE_NAMES)
         super().setUpClass()
 
     def setUp(self):
@@ -185,9 +159,29 @@ class ProjectTaskFixture(TestCase):
         self.url = reverse("project-tasks", args=[self.project.pk])
 
         self.client = APIClient()
-        self.client.force_authenticate(user=self.user)
+        self._login_as(self.user)
 
     # ----------------------------------------------------------- helpers
+
+    def _login_as(self, user):
+        """Give the client a session for `user`, the way API 01 would.
+
+        API 01 stores nothing but the id: request.session["user_id"]. Every
+        request then resolves that id through sp_get_session_user, so the row
+        has to be Active and in an Active "JNS Business Solutions", or the
+        endpoint answers 401 no matter what this helper writes.
+        """
+
+        session = self.client.session
+        session["user_id"] = user.pk
+        session.save()
+
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
+    def _log_out(self):
+        """Drop the session cookie, leaving an anonymous client."""
+
+        self.client.cookies.pop(settings.SESSION_COOKIE_NAME, None)
 
     def _organisation(self, name):
         return Organisation.objects.create(
@@ -348,7 +342,7 @@ class ProjectTaskListTests(ProjectTaskFixture):
         """The role rule is scoped to creating, not to reading."""
 
         self.client.post(self.url, self._payload(), format="json")
-        self.client.force_authenticate(user=self.assignee)
+        self._login_as(self.assignee)
 
         response = self.client.get(self.url)
 
@@ -477,20 +471,52 @@ class ProjectTaskListTests(ProjectTaskFixture):
     def test_same_organisation_non_member_cannot_list_the_tasks(self):
         """Being in the organisation is not enough. Membership is explicit."""
 
-        self.client.force_authenticate(user=self.outsider)
+        self._login_as(self.outsider)
 
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_another_organisation_cannot_list_this_projects_tasks(self):
-        """404 rather than 403, so the project's existence is not confirmed."""
+    def test_a_project_in_another_organisation_is_404(self):
+        """404 rather than 403, so the project's existence is not confirmed.
 
-        self.client.force_authenticate(user=self.other_user)
+        Driven from the JNS side rather than from the other organisation's,
+        because sp_get_session_user will not issue a session to a user outside
+        JNS Business Solutions. See the fixture docstring.
+        """
 
-        response = self.client.get(self.url)
+        other_project = Project.objects.create(
+            organisation=self.other_org,
+            project_name="Someone Else's Work",
+            created_by=self.other_user,
+        )
+        self._member(other_project, self.other_user)
+
+        response = self.client.get(
+            reverse("project-tasks", args=[other_project.pk])
+        )
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_the_service_refuses_a_caller_from_another_organisation(self):
+        """The same rule from the other direction, below the HTTP layer.
+
+        require_visible_project is what both task services call, and it takes
+        the session dict rather than a request, so it can be asked the
+        question the endpoint cannot: what happens when the caller really is
+        in another organisation. Kept as a service test rather than dropped,
+        so tenant isolation is asserted somewhere rather than assumed.
+        """
+
+        with self.assertRaises(ProjectNotVisible):
+            require_visible_project(
+                project_id=self.project.pk,
+                user={
+                    "user_id": self.other_user.pk,
+                    "organisation_id": self.other_org.pk,
+                    "role_name": "Manager",
+                },
+            )
 
     def test_an_unknown_project_is_404(self):
         response = self.client.get(reverse("project-tasks", args=[999999]))
@@ -498,14 +524,29 @@ class ProjectTaskListTests(ProjectTaskFixture):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_both_services_refuse_an_unauthenticated_caller(self):
-        self.client.force_authenticate(user=None)
+        self._log_out()
 
-        self.assertIn(
+        self.assertEqual(
             self.client.get(self.url).status_code,
-            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+            status.HTTP_401_UNAUTHORIZED,
         )
-        self.assertIn(
+        self.assertEqual(
             self.client.post(self.url, self._payload(), format="json").status_code,
-            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+            status.HTTP_401_UNAUTHORIZED,
         )
         self.assertEqual(Task.objects.count(), 0)
+
+    def test_a_session_for_a_user_who_no_longer_resolves_is_401(self):
+        """A stale cookie is not a session.
+
+        The id in the cookie is looked up on every request, so a user who has
+        since been suspended is refused even though the cookie is still valid
+        and signed.
+        """
+
+        self.user.status = "Suspended"
+        self.user.save(update_fields=["status"])
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -21,6 +21,11 @@ with 404 rather than 403. A project in another organisation, a project the
 caller is not a member of, and a project id that does not exist are all
 indistinguishable from outside. A 403 would confirm the project exists, which
 tells an attacker something about a tenant they cannot see.
+
+`user` is the session dict sp_get_session_user returned, the same value APIs
+02, 03, 04, 05 and 10 pass around, not a Django model instance. See
+tasks/api/_session.py for why the task endpoints read the session rather than
+request.user.
 """
 
 from data_access.tasks.get_project_user_access import get_project_user_access
@@ -35,12 +40,15 @@ def require_visible_project(*, project_id, user):
     again when it checks the assignee, so the caller does not have to look the
     project up a second time.
     """
-    access = get_project_user_access(project_id=project_id, user_id=user.user_id)
+    access = get_project_user_access(
+        project_id=project_id,
+        user_id=user["user_id"],
+    )
 
     if access is None:
         raise ProjectNotVisible()
 
-    if access["project_organisation_id"] != user.organisation_id:
+    if access["project_organisation_id"] != user["organisation_id"]:
         raise ProjectNotVisible()
 
     permissions = set(getattr(user, "permissions", []) or [])

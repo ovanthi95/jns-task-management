@@ -72,9 +72,14 @@ export default function ProjectList() {
     <MainCard
       title="Projects"
       secondary={
-        <Button as={Link} to="/projects/new">
-          Add project
-        </Button>
+        <div className="d-flex gap-2">
+          <Button as={Link} to="/history" variant="outline-secondary">
+            History
+          </Button>
+          <Button as={Link} to="/projects/new">
+            Add project
+          </Button>
+        </div>
       }
     >
       <div className="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-3">

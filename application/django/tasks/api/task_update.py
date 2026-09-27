@@ -91,6 +91,9 @@ class TaskUpdateView(APIView):
             "user_id": request.user.user_id,
             "organisation_id": request.user.organisation_id,
             "role_name": request.user.role.role_name,
+            "permissions": list(
+                getattr(request.user, "permissions", []) or []
+            ),
         }
 
         try:

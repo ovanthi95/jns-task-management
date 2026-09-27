@@ -2,13 +2,12 @@
 # Owner: Manatka
 
 from django.contrib.auth.hashers import make_password
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 
 from data_access.users.create_user import create_user
 
 USER_CREATE_ROLES = frozenset({"admin"})
 
-# MySQL error numbers surfaced through IntegrityError.args[0]
 MYSQL_DUPLICATE_ENTRY = 1062
 MYSQL_FK_FAILS = 1452
 
@@ -23,23 +22,19 @@ class UserCreateValidationError(Exception):
 
 def can_create_user(session_user):
     role_name = (session_user or {}).get("role_name") or ""
-
     return role_name.lower() in USER_CREATE_ROLES
 
 
 def create_user_in_organisation(session_user, data):
-    """Create a user in the caller's organisation.
-
-    - organisation_id comes from the session user, never from `data`.
-    - The plain password is hashed here; only the hash reaches the procedure.
-    - Duplicate (organisation, email) and unknown role become field errors,
-      without exposing SQL text. The insert runs in a savepoint so a failed
-      insert cannot poison the surrounding transaction.
-    """
+    """Create a user in the caller's organisation."""
 
     if not can_create_user(session_user):
         raise PermissionError("Your role is not permitted to create users.")
 
+    email = data["email"].strip().lower()
+    first_name = data["first_name"].strip()
+    last_name = data["last_name"].strip()
+    availability = (data.get("availability") or "").strip() or None
     password_hash = make_password(data["password"])
 
     try:
@@ -47,23 +42,42 @@ def create_user_in_organisation(session_user, data):
             return create_user(
                 organisation_id=session_user["organisation_id"],
                 role_id=data["role_id"],
-                first_name=data["first_name"],
-                last_name=data["last_name"],
-                email=data["email"],
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
                 password_hash=password_hash,
-                availability=data.get("availability") or None,
+                availability=availability,
             )
     except IntegrityError as exc:
         code = exc.args[0] if exc.args else None
 
         if code == MYSQL_DUPLICATE_ENTRY:
             raise UserCreateValidationError(
-                {"email": ["A user with this email already exists in your organisation."]}
+                {"email": ["This email is already in use."]}
             ) from exc
 
         if code == MYSQL_FK_FAILS:
             raise UserCreateValidationError(
-                {"role_id": ["Unknown role."]}
+                {"role_id": ["Choose an active role."]}
+            ) from exc
+
+        raise
+    except DatabaseError as exc:
+        message = str(exc).lower()
+
+        if "email already exists" in message:
+            raise UserCreateValidationError(
+                {"email": ["This email is already in use."]}
+            ) from exc
+
+        if "invalid role" in message:
+            raise UserCreateValidationError(
+                {"role_id": ["Choose an active role."]}
+            ) from exc
+
+        if "invalid organisation" in message:
+            raise UserCreateValidationError(
+                {"detail": ["Your organisation is not active."]}
             ) from exc
 
         raise

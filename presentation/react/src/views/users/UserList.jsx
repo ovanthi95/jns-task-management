@@ -156,10 +156,18 @@ export default function UserList() {
       title="Users"
       subheader={<p className="mb-0">All users in your organisation</p>}
       secondary={
-        <Button as={Link} to="/users/new" size="sm">
-          <i className="ph ph-user-plus me-1" />
-          Create user
-        </Button>
+        <div className="d-flex gap-2">
+          <Button as={Link} to="/roles" size="sm" variant="outline-secondary">
+            Roles
+          </Button>
+          <Button as={Link} to="/history" size="sm" variant="outline-secondary">
+            History
+          </Button>
+          <Button as={Link} to="/users/new" size="sm">
+            <i className="ph ph-user-plus me-1" />
+            Create user
+          </Button>
+        </div>
       }
     >
       {body}

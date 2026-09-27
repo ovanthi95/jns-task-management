@@ -5,8 +5,7 @@ from django.contrib.auth.hashers import make_password
 from django.db import DatabaseError, IntegrityError, transaction
 
 from data_access.users.create_user import create_user
-
-USER_CREATE_ROLES = frozenset({"admin"})
+from users.services.permission_service import actor_has_permission
 
 MYSQL_DUPLICATE_ENTRY = 1062
 MYSQL_FK_FAILS = 1452
@@ -21,8 +20,7 @@ class UserCreateValidationError(Exception):
 
 
 def can_create_user(session_user):
-    role_name = (session_user or {}).get("role_name") or ""
-    return role_name.lower() in USER_CREATE_ROLES
+    return actor_has_permission(session_user, "manage_users")
 
 
 def create_user_in_organisation(session_user, data):

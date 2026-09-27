@@ -118,6 +118,7 @@ export default function UserList() {
                 <th>Role</th>
                 <th>Availability</th>
                 <th>Status</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -129,6 +130,16 @@ export default function UserList() {
                   <td>{user.availability || '—'}</td>
                   <td>
                     <Badge bg={user.status === 'Active' ? 'success' : 'secondary'}>{user.status}</Badge>
+                  </td>
+                  <td className="text-end">
+                    <Button
+                      as={Link}
+                      to={`/users/${user.user_id}/edit`}
+                      size="sm"
+                      variant="outline-primary"
+                    >
+                      Edit
+                    </Button>
                   </td>
                 </tr>
               ))}

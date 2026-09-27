@@ -22,36 +22,14 @@ class AuditLog(models.Model):
     )
 
     action = models.CharField(max_length=50)
-
     entity_type = models.CharField(max_length=50)
-
-    entity_id = models.IntegerField(
-        null=True,
-        blank=True
-    )
-
-    description = models.CharField(
-        max_length=500,
-        null=True,
-        blank=True
-    )
-
-    old_value = models.JSONField(
-        null=True,
-        blank=True
-    )
-
-    new_value = models.JSONField(
-        null=True,
-        blank=True
-    )
-
-    ip_address = models.CharField(
-        max_length=45,
-        null=True,
-        blank=True
-    )
-
+    entity_id = models.IntegerField(null=True, blank=True)
+    entity_name = models.CharField(max_length=255, null=True, blank=True)
+    field_name = models.CharField(max_length=100, null=True, blank=True)
+    description = models.CharField(max_length=500, null=True, blank=True)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField(null=True, blank=True)
+    ip_address = models.CharField(max_length=45, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

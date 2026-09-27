@@ -7,6 +7,7 @@ import RequireAuth from './RequireAuth';
 const TaskListPage = Loadable(lazy(() => import('views/tasks/TaskList')));
 const TaskCreatePage = Loadable(lazy(() => import('views/tasks/TaskCreate')));
 const TaskEditPage = Loadable(lazy(() => import('views/tasks/TaskEdit')));
+const TaskCommentsPage = Loadable(lazy(() => import('views/tasks/TaskComments')));
 
 const TasksRoutes = {
   path: '/',
@@ -30,6 +31,10 @@ const TasksRoutes = {
         {
           path: 'projects/:projectId/tasks/:taskId/edit',
           element: <TaskEditPage />
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId/comments',
+          element: <TaskCommentsPage />
         }
       ]
     }

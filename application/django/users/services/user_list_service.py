@@ -2,6 +2,7 @@
 # Owner: Manatka
 
 from data_access.users.get_users import get_users
+from users.services.permission_service import actor_has_permission
 
 # Matched case-insensitively against role_name from sp_get_session_user.
 # Seeded roles: Admin, Manager, Employee, Intern, Volunteer.
@@ -9,11 +10,14 @@ USER_LIST_ROLES = frozenset({"admin", "manager"})
 
 
 def can_list_users(session_user):
-    """Admin and Manager assign tasks, so they may read the team list."""
+    """User managers and the existing Manager role may read the team list."""
 
     role_name = (session_user or {}).get("role_name") or ""
 
-    return role_name.lower() in USER_LIST_ROLES
+    return (
+        actor_has_permission(session_user, "manage_users")
+        or role_name.lower() == "manager"
+    )
 
 
 def list_users(session_user):

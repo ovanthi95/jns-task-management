@@ -9,6 +9,8 @@ from data_access.tasks.get_task_access import get_task_access
 from data_access.tasks.get_task_status import get_task_status
 from data_access.tasks.update_task import update_task as update_task_row
 
+from users.services.permission_service import actor_has_permission
+
 from .exceptions import InvalidTaskInput
 
 
@@ -29,9 +31,6 @@ DETAIL_FIELDS = {
     "due_date",
     "estimated_hours",
 }
-
-FULL_EDIT_ROLES = {"admin", "manager"}
-REASSIGN_ROLES = {"admin"}
 
 
 def update_task_details(*, actor, task_id, changes):
@@ -99,29 +98,40 @@ def _target_status(changes):
 
 
 def _authorise(*, actor, current, changes, target_status):
-    role_name = str(actor.get("role_name") or "").strip().lower()
+    detail_changes = set(changes).intersection(DETAIL_FIELDS)
 
-    if role_name in FULL_EDIT_ROLES:
-        if "assignee_id" in changes and role_name not in REASSIGN_ROLES:
+    if detail_changes and not actor_has_permission(actor, "edit_tasks"):
+        raise TaskUpdateNotPermitted()
+
+    if "assignee_id" in changes and not actor_has_permission(actor, "reassign_tasks"):
+        raise TaskUpdateNotPermitted()
+
+    if "status_id" in changes:
+        if actor_has_permission(actor, "change_any_task_status"):
+            return
+
+        if set(changes) != {"status_id"}:
             raise TaskUpdateNotPermitted()
-        return
 
-    if set(changes) != {"status_id"}:
-        raise TaskUpdateNotPermitted()
+        assignee_ids = {
+            int(person["user_id"])
+            for person in current.get("assignees", [])
+            if person.get("user_id") is not None
+        }
 
-    assignee_ids = {
-        int(person["user_id"])
-        for person in current.get("assignees", [])
-        if person.get("user_id") is not None
-    }
+        if actor["user_id"] not in assignee_ids:
+            raise TaskUpdateNotPermitted()
 
-    if actor["user_id"] not in assignee_ids:
-        raise TaskUpdateNotPermitted()
+        if not actor_has_permission(actor, "complete_assigned_tasks"):
+            raise TaskUpdateNotPermitted()
 
-    if (
-        target_status is None
-        or str(target_status["status_name"]).strip().lower() != "completed"
-    ):
+        if (
+            target_status is None
+            or str(target_status["status_name"]).strip().lower() != "completed"
+        ):
+            raise TaskUpdateNotPermitted()
+
+    elif not detail_changes and "assignee_id" not in changes:
         raise TaskUpdateNotPermitted()
 
 

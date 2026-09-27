@@ -1,6 +1,8 @@
 """API 12 - PATCH /api/users/:userId."""
 
 from django.db import DatabaseError, IntegrityError
+
+from audit.models import AuditLog
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import serializers, status
@@ -8,7 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.models import Role
+from users.models import Role, User
 from users.services.session_service import get_authenticated_session_user
 from users.services.user_update_service import edit_user
 
@@ -113,6 +115,16 @@ class UserUpdateView(APIView):
         if "email" in data:
             data["email"] = data["email"].strip().lower()
 
+        previous = (
+            User.objects
+            .select_related("role")
+            .filter(
+                user_id=user_id,
+                organisation_id=session_user["organisation_id"],
+            )
+            .first()
+        )
+
         try:
             updated = edit_user(
                 organisation_id=session_user["organisation_id"],
@@ -150,5 +162,34 @@ class UserUpdateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             raise
+
+        if previous is not None:
+            field_map = {
+                "first_name": previous.first_name,
+                "last_name": previous.last_name,
+                "email": previous.email,
+                "role_id": previous.role.role_name,
+                "availability": previous.availability,
+                "status": previous.status,
+            }
+
+            for field, new_value in data.items():
+                old_value = field_map.get(field)
+                shown_field = "role_name" if field == "role_id" else field
+                shown_new = role.role_name if field == "role_id" and role else new_value
+
+                if str(old_value) != str(shown_new):
+                    AuditLog.objects.create(
+                        organisation_id=session_user["organisation_id"],
+                        user_id=session_user["user_id"],
+                        action="Updated",
+                        entity_type="User",
+                        entity_id=updated["user_id"],
+                        entity_name=f'{updated["first_name"]} {updated["last_name"]}'.strip(),
+                        field_name=shown_field,
+                        description="User account updated.",
+                        old_value=old_value,
+                        new_value=shown_new,
+                    )
 
         return Response(updated, status=status.HTTP_200_OK)

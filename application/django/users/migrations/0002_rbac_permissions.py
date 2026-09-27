@@ -35,7 +35,7 @@ DEFAULTS = {
     "employee": {"complete_assigned_tasks"},
     "intern": {"complete_assigned_tasks"},
     "volunteer": {"complete_assigned_tasks"},
-}
+]
 
 
 def seed_permissions(apps, schema_editor):

@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.models import Role
+from users.services.permission_service import actor_has_permission
+from users.services.session_service import get_authenticated_session_user
 from users.services.user_update_service import edit_user
 
 
@@ -65,13 +67,18 @@ class UserUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, user_id):
-        role_name = str(
-            getattr(request.user.role, "role_name", "")
-        ).strip().lower()
+        actor = get_authenticated_session_user(request.user.user_id)
 
-        if role_name != "admin":
+        if actor is None:
+            request.session.flush()
             return Response(
-                {"detail": "Admin role required."},
+                {"detail": "Not authenticated."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if not actor_has_permission(actor, "manage_users"):
+            return Response(
+                {"detail": "User management permission required."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -87,7 +94,7 @@ class UserUpdateView(APIView):
         if role is not None:
             data["role_id"] = role.role_id
 
-        is_self = int(user_id) == int(request.user.user_id)
+        is_self = int(user_id) == int(actor["user_id"])
 
         if is_self and data.get("status") == "Inactive":
             return Response(
@@ -102,7 +109,7 @@ class UserUpdateView(APIView):
         if (
             is_self
             and role is not None
-            and role.role_id != request.user.role.role_id
+            and role.role_id != actor["role_id"]
         ):
             return Response(
                 {
@@ -118,7 +125,7 @@ class UserUpdateView(APIView):
 
         try:
             updated = edit_user(
-                organisation_id=request.user.organisation_id,
+                actor=actor,
                 user_id=user_id,
                 changes=data,
             )

@@ -50,6 +50,7 @@ class JNSSessionAuthentication(SessionAuthentication):
             user_id=session_user["user_id"],
             organisation_id=session_user["organisation_id"],
             role=role,
+            permissions=list(session_user.get("permissions") or []),
             email=session_user["email"],
             first_name=session_user["first_name"],
             last_name=session_user["last_name"],

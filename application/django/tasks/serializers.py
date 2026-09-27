@@ -113,6 +113,7 @@ class TaskCreateSerializer(serializers.Serializer):
     status_id = serializers.IntegerField()
     priority_id = serializers.IntegerField()
     assignee_id = serializers.IntegerField()
+    notify_assignee = serializers.BooleanField(required=False, default=False, write_only=True)
 
     title = serializers.CharField(max_length=200)
 

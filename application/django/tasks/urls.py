@@ -4,6 +4,7 @@ from .api.file_upload import FileUploadView
 from .api.task_create import TaskCreateView
 from .api.task_list import TaskListView
 from .api.task_options import TaskCreateOptionsView
+from .api.task_update import TaskUpdateView
 
 
 class ProjectTasksRoute(TaskListView, TaskCreateView):
@@ -20,6 +21,11 @@ urlpatterns = [
         "projects/<int:project_id>/task-options",
         TaskCreateOptionsView.as_view(),
         name="project-task-options",
+    ),
+    path(
+        "tasks/<int:task_id>",
+        TaskUpdateView.as_view(),
+        name="task-update",
     ),
     path(
         "tasks/<int:task_id>/files",

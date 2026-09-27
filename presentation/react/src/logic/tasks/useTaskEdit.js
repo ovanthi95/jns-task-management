@@ -71,18 +71,18 @@ export function useTaskEdit(projectId, taskId) {
   }, [projectId, taskId]);
 
   const permissions = useMemo(() => {
-    const role = String(user?.role_name || '').toLowerCase();
+    const permissions = new Set(user?.permissions || []);
     const userId = Number(user?.user_id);
     const isAssignee = (task?.assignees || []).some(
       (person) => Number(person.user_id) === userId
     );
 
     return {
-      canEditDetails: role === 'admin' || role === 'manager',
-      canReassign: role === 'admin',
-      canChangeAnyStatus: role === 'admin' || role === 'manager',
+      canEditDetails: permissions.has('edit_tasks'),
+      canReassign: permissions.has('reassign_tasks'),
+      canChangeAnyStatus: permissions.has('change_any_task_status'),
       canCompleteAssigned:
-        !['admin', 'manager'].includes(role) && isAssignee
+        permissions.has('complete_assigned_tasks') && isAssignee
     };
   }, [task, user]);
 

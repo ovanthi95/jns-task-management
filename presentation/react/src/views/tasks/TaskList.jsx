@@ -1,133 +1,332 @@
 // API 07 UI - Task list
 // Owner: Edward
-//
-// Markup only. Loading, filtering and error handling live in useTaskList.
-//
-// The create form is rendered on the same page and handed a callback, so a
-// task created through API 06 appears in the API 07 list without a reload.
-// That is also what makes the two services demonstrable in one screen.
 
-import { useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
-// react-bootstrap
 import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
-import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
 
-// project-imports
 import MainCard from 'components/MainCard';
-import { useTaskList } from 'logic/tasks/useTaskList';
-import TaskCreate from './TaskCreate';
+import { getTaskOptions, getTasks } from 'services/tasks/taskListService';
 
-// ==============================|| TASKS - LIST (API 07) ||============================== //
+function statusVariant(status) {
+  if (status === 'Completed') return 'success';
+  if (status === 'In Progress') return 'primary';
+  if (status === 'Under Review') return 'warning';
+  if (status === 'Waiting for Information') return 'info';
+  return 'secondary';
+}
+
+function localDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export default function TaskList() {
   const { projectId } = useParams();
-  const { tasks, filters, loading, error, setFilter, applyFilters, clearFilters, reload } = useTaskList(projectId);
+  const [tasks, setTasks] = useState([]);
+  const [options, setOptions] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
+  const [assigneeFilter, setAssigneeFilter] = useState('All');
+  const [dueFilter, setDueFilter] = useState('All');
+
+  useEffect(() => {
+    let active = true;
+
+    Promise.all([getTasks(projectId), getTaskOptions(projectId)])
+      .then(([rows, taskOptions]) => {
+        if (!active) return;
+        setTasks(rows);
+        setOptions(taskOptions);
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  const completed = useMemo(
+    () => tasks.filter((task) => task.status_name === 'Completed').length,
+    [tasks]
+  );
+
+  const visibleTasks = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const today = localDateKey();
+
+    return tasks.filter((task) => {
+      const matchesSearch =
+        !term ||
+        (task.title || '').toLowerCase().includes(term) ||
+        (task.description || '').toLowerCase().includes(term);
+
+      const matchesStatus =
+        statusFilter === 'All' || String(task.status_id) === statusFilter;
+
+      const matchesPriority =
+        priorityFilter === 'All' || String(task.priority_id) === priorityFilter;
+
+      const matchesAssignee =
+        assigneeFilter === 'All' ||
+        task.assignees?.some(
+          (item) => String(item.user_id) === assigneeFilter
+        );
+
+      let matchesDue = true;
+
+      if (dueFilter === 'No due date') {
+        matchesDue = !task.due_date;
+      } else if (dueFilter !== 'All') {
+        const isOpen = task.status_name !== 'Completed';
+
+        if (!task.due_date || !isOpen) {
+          matchesDue = false;
+        } else if (dueFilter === 'Overdue') {
+          matchesDue = task.due_date < today;
+        } else if (dueFilter === 'Due today') {
+          matchesDue = task.due_date === today;
+        } else if (dueFilter === 'Upcoming') {
+          matchesDue = task.due_date > today;
+        }
+      }
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority &&
+        matchesAssignee &&
+        matchesDue
+      );
+    });
+  }, [
+    tasks,
+    search,
+    statusFilter,
+    priorityFilter,
+    assigneeFilter,
+    dueFilter
+  ]);
+
+  const hasActiveFilters =
+    search ||
+    statusFilter !== 'All' ||
+    priorityFilter !== 'All' ||
+    assigneeFilter !== 'All' ||
+    dueFilter !== 'All';
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('All');
+    setPriorityFilter('All');
+    setAssigneeFilter('All');
+    setDueFilter('All');
+  };
 
   return (
-    <Row className="g-3">
-      <Col xs={12}>
-        <TaskCreate projectId={projectId} onCreated={reload} />
-      </Col>
+    <MainCard
+      title={
+        options?.project?.project_name
+          ? `Tasks — ${options.project.project_name}`
+          : 'Tasks'
+      }
+      secondary={
+        options?.can_create ? (
+          <Button as={Link} to={`/projects/${projectId}/tasks/new`}>
+            Add task
+          </Button>
+        ) : null
+      }
+    >
+      <div className="d-flex flex-wrap gap-3 align-items-center mb-3">
+        <Link to="/projects">← Back to projects</Link>
 
-      <Col xs={12}>
-        <MainCard
-          title="Tasks"
-          subheader={`Project #${projectId}`}
-          secondary={loading ? <Spinner animation="border" size="sm" /> : <Badge bg="secondary">{tasks.length}</Badge>}
-        >
-          <Form onSubmit={applyFilters} className="mb-3">
-            <Row className="g-2 align-items-end">
-              <Col md={3}>
-                <Form.Label>Status id</Form.Label>
-                <Form.Control
-                  type="number"
-                  min={1}
-                  value={filters.status_id}
-                  onChange={(event) => setFilter('status_id', event.target.value)}
-                />
-              </Col>
-              <Col md={3}>
-                <Form.Label>Priority id</Form.Label>
-                <Form.Control
-                  type="number"
-                  min={1}
-                  value={filters.priority_id}
-                  onChange={(event) => setFilter('priority_id', event.target.value)}
-                />
-              </Col>
-              <Col md={3}>
-                <Form.Label>Assignee id</Form.Label>
-                <Form.Control
-                  type="number"
-                  min={1}
-                  value={filters.assignee_id}
-                  onChange={(event) => setFilter('assignee_id', event.target.value)}
-                />
-              </Col>
-              <Col md={3}>
-                <Button type="submit" className="me-2" disabled={loading}>
-                  Apply
-                </Button>
-                <Button type="button" variant="light" onClick={clearFilters} disabled={loading}>
-                  Clear
-                </Button>
-              </Col>
-            </Row>
-          </Form>
+        {options?.project && (
+          <Badge
+            bg={options.project.status === 'Active' ? 'primary' : 'secondary'}
+          >
+            {options.project.status}
+          </Badge>
+        )}
 
-          {error && <Alert variant="danger">{error}</Alert>}
+        <span className="text-muted">
+          {completed} / {tasks.length} completed
+        </span>
 
-          {!error && !loading && tasks.length === 0 && <Alert variant="light">No tasks match these filters.</Alert>}
+        {loading && <Spinner animation="border" size="sm" />}
+      </div>
 
-          {tasks.length > 0 && (
-            <Table responsive hover className="mb-0">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Priority</th>
-                  <th>Assignees</th>
-                  <th>Due</th>
-                  <th className="text-end">Est. hrs</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((task) => (
-                  <tr key={task.task_id}>
-                    <td>{task.task_id}</td>
-                    <td>{task.title}</td>
-                    <td>{task.task_type_name}</td>
-                    <td>{task.status_name}</td>
-                    <td>{task.priority_name}</td>
-                    <td>{assigneeNames(task.assignees)}</td>
-                    <td>{task.due_date || '—'}</td>
-                    {/* estimated_hours arrives as a string ("4.50"). It is
-                        printed as it came so the two decimals survive. */}
-                    <td className="text-end">{task.estimated_hours || '—'}</td>
-                  </tr>
+      {options?.project?.status !== 'Active' && options?.project && (
+        <Alert variant="info">
+          This project is {options.project.status.toLowerCase()}.
+          Existing tasks can be viewed, but new tasks cannot be added.
+        </Alert>
+      )}
+
+      {error && <Alert variant="danger">{error}</Alert>}
+
+      {!loading && tasks.length > 0 && (
+        <div className="border rounded p-3 mb-3">
+          <div className="row g-2">
+            <div className="col-lg-4">
+              <Form.Control
+                type="search"
+                placeholder="Search task title or description"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+
+            <div className="col-md-6 col-lg-2">
+              <Form.Select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                <option value="All">All statuses</option>
+                {options?.task_statuses?.map((item) => (
+                  <option key={item.status_id} value={String(item.status_id)}>
+                    {item.status_name}
+                  </option>
                 ))}
-              </tbody>
-            </Table>
-          )}
-        </MainCard>
-      </Col>
-    </Row>
+              </Form.Select>
+            </div>
+
+            <div className="col-md-6 col-lg-2">
+              <Form.Select
+                value={priorityFilter}
+                onChange={(event) => setPriorityFilter(event.target.value)}
+              >
+                <option value="All">All priorities</option>
+                {options?.priorities?.map((item) => (
+                  <option key={item.priority_id} value={String(item.priority_id)}>
+                    {item.priority_name}
+                  </option>
+                ))}
+              </Form.Select>
+            </div>
+
+            <div className="col-md-6 col-lg-2">
+              <Form.Select
+                value={assigneeFilter}
+                onChange={(event) => setAssigneeFilter(event.target.value)}
+              >
+                <option value="All">All assignees</option>
+                {options?.users?.map((item) => (
+                  <option key={item.user_id} value={String(item.user_id)}>
+                    {item.name}
+                  </option>
+                ))}
+              </Form.Select>
+            </div>
+
+            <div className="col-md-6 col-lg-2">
+              <Form.Select
+                value={dueFilter}
+                onChange={(event) => setDueFilter(event.target.value)}
+              >
+                <option value="All">All due dates</option>
+                <option value="Overdue">Overdue</option>
+                <option value="Due today">Due today</option>
+                <option value="Upcoming">Upcoming</option>
+                <option value="No due date">No due date</option>
+              </Form.Select>
+            </div>
+          </div>
+
+          <div className="d-flex justify-content-between align-items-center gap-2 mt-3">
+            <span className="text-muted">
+              Showing {visibleTasks.length} of {tasks.length} tasks
+            </span>
+
+            {hasActiveFilters && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline-secondary"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p>Loading tasks...</p>
+      ) : tasks.length === 0 ? (
+        <p className="mb-0">No tasks have been added to this project yet.</p>
+      ) : visibleTasks.length === 0 ? (
+        <p className="mb-0">No tasks match the selected filters.</p>
+      ) : (
+        <Table responsive hover align="middle">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Assignee</th>
+              <th>Type</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Due date</th>
+              <th className="text-end">Est. hrs</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {visibleTasks.map((task) => (
+              <tr key={task.task_id}>
+                <td>
+                  <div className="fw-semibold">{task.title}</div>
+                  {task.description && (
+                    <small className="text-muted">{task.description}</small>
+                  )}
+                </td>
+
+                <td>
+                  {task.assignees?.length
+                    ? task.assignees
+                        .map(
+                          (item) =>
+                            `${item.first_name} ${item.last_name}`
+                        )
+                        .join(', ')
+                    : '—'}
+                </td>
+
+                <td>{task.task_type_name}</td>
+                <td>{task.priority_name}</td>
+
+                <td>
+                  <Badge bg={statusVariant(task.status_name)}>
+                    {task.status_name}
+                  </Badge>
+                </td>
+
+                <td>{task.due_date || '—'}</td>
+                <td className="text-end">{task.estimated_hours || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </MainCard>
   );
-}
-
-function assigneeNames(assignees) {
-  if (!assignees || assignees.length === 0) {
-    return '—';
-  }
-
-  return assignees.map((person) => `${person.first_name} ${person.last_name}`).join(', ');
 }

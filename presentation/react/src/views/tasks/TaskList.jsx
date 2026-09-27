@@ -287,6 +287,7 @@ export default function TaskList() {
               <th>Status</th>
               <th>Due date</th>
               <th className="text-end">Est. hrs</th>
+              <th />
             </tr>
           </thead>
 
@@ -322,6 +323,17 @@ export default function TaskList() {
 
                 <td>{task.due_date || '—'}</td>
                 <td className="text-end">{task.estimated_hours || '—'}</td>
+
+                <td className="text-end">
+                  <Button
+                    as={Link}
+                    to={`/projects/${projectId}/tasks/${task.task_id}/edit`}
+                    size="sm"
+                    variant="outline-primary"
+                  >
+                    Edit
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>

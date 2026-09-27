@@ -10,6 +10,7 @@ import NavigationRoutes from './NavigationRoutes';
 import TablesRoutes from './TablesRoutes';
 import TasksRoutes from './TasksRoutes';
 import UsersRoutes from './UsersRoutes';
+import ProjectsRoutes from './ProjectsRoutes';
 import TaskFilesRoutes from './TaskFilesRoutes';
 import NotFound from 'views/errors/NotFound';
 import BadRequest from 'views/errors/BadRequest';
@@ -36,6 +37,7 @@ const router = createBrowserRouter(
     OtherRoutes,
     ChartMapRoutes,
     UsersRoutes,
+    ProjectsRoutes,
     TaskFilesRoutes,
     {
       path: '*',

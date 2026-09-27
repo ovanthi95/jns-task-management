@@ -1,4 +1,4 @@
--- API 06 support data for the create-task form.
+-- API 06/07 support data for task creation and task-list filters.
 
 DROP PROCEDURE IF EXISTS sp_get_task_create_options;
 
@@ -39,13 +39,12 @@ BEGIN
     UNION ALL
 
     SELECT
-        'new_status',
+        'task_status',
         ts.status_id,
         ts.status_name,
         NULL
     FROM task_statuses ts
     WHERE ts.is_active = 1
-      AND LOWER(ts.status_name) = 'new'
 
     UNION ALL
 

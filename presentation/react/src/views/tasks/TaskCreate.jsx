@@ -1,195 +1,264 @@
-// API 06 UI - Create task
-// Owner: Edward
-//
-// Markup only. Every decision about what happens on submit lives in
-// useTaskCreate, and every decision about how the request is made lives in
-// taskCreateService.
-//
-// The four lookups are number inputs rather than dropdowns. The agreed REST
-// list has no service that returns task types, statuses, priorities or the
-// members of a project, so there is nothing to populate a dropdown from, and
-// adding such an endpoint would be work on a card nobody has been given. The
-// ids are seeded by users/management/commands/seed_lookups.py and the demo
-// uses those.
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import PropTypes from 'prop-types';
-import { useParams } from 'react-router-dom';
-
-// react-bootstrap
-import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
-import Row from 'react-bootstrap/Row';
-import Spinner from 'react-bootstrap/Spinner';
 
-// project-imports
 import MainCard from 'components/MainCard';
-import { useTaskCreate } from 'logic/tasks/useTaskCreate';
+import { createTask } from 'services/tasks/taskCreateService';
+import { uploadFile } from 'services/tasks/fileService';
+import { getTaskOptions } from 'services/tasks/taskListService';
 
-// ==============================|| TASKS - CREATE (API 06) ||============================== //
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-export default function TaskCreate({ projectId, onCreated }) {
-  const params = useParams();
+const empty = {
+  title: '',
+  description: '',
+  task_type_id: '',
+  priority_id: '',
+  assignee_id: '',
+  start_date: '',
+  due_date: '',
+  estimated_hours: ''
+};
 
-  // A prop when this form is embedded in the list page, the URL when it is
-  // reached on its own. Both routes are registered, so both are supported.
-  const project = projectId || params.projectId;
+export default function TaskCreate() {
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+  const [values, setValues] = useState(empty);
+  const [options, setOptions] = useState(null);
+  const [attachment, setAttachment] = useState(null);
+  const [notifyAssignee, setNotifyAssignee] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const { form, fieldErrors, error, saving, created, setField, handleSubmit } = useTaskCreate(project, onCreated);
+  useEffect(() => {
+    let active = true;
+
+    getTaskOptions(projectId)
+      .then((data) => {
+        if (active) setOptions(data);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  const change = (event) => {
+    setValues((current) => ({
+      ...current,
+      [event.target.name]: event.target.value
+    }));
+  };
+
+  const chooseAttachment = (event) => {
+    const file = event.target.files?.[0] || null;
+
+    if (file && file.size > MAX_FILE_SIZE) {
+      event.target.value = '';
+      setAttachment(null);
+      setError('Attachment must be 10 MB or smaller.');
+      return;
+    }
+
+    setError('');
+    setAttachment(file);
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+
+    const newStatus = options?.task_statuses?.find(
+      (item) => item.status_name === 'New'
+    );
+
+    if (!newStatus) {
+      setError('The New task status is not configured.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+
+    try {
+      const result = await createTask(projectId, {
+        title: values.title,
+        description: values.description || null,
+        task_type_id: Number(values.task_type_id),
+        status_id: Number(newStatus.status_id),
+        priority_id: Number(values.priority_id),
+        assignee_id: Number(values.assignee_id),
+        start_date: values.start_date || null,
+        due_date: values.due_date || null,
+        estimated_hours: values.estimated_hours || null,
+        notify_assignee: notifyAssignee
+      });
+
+      if (attachment) {
+        try {
+          await uploadFile(result.task_id, attachment);
+        } catch (uploadError) {
+          window.alert(
+            `The task was created, but the attachment could not be uploaded: ${uploadError.message}`
+          );
+        }
+      }
+
+      if (result.email_warning) {
+        window.alert(result.email_warning);
+      }
+
+      navigate(`/projects/${projectId}/tasks/${result.task_id}`);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) return <MainCard title="Add task">Loading...</MainCard>;
+
+  if (!options?.can_create) {
+    return (
+      <MainCard title="Add task">
+        <div className="alert alert-warning">
+          You do not have permission to add tasks to this project.
+        </div>
+        <Link to={`/projects/${projectId}/tasks`}>Back to tasks</Link>
+      </MainCard>
+    );
+  }
+
+  const canNotify =
+    options.current_user?.permissions?.includes('send_task_notifications');
 
   return (
-    <MainCard title="New task" subheader={`Project #${project}`}>
-      <Form noValidate onSubmit={handleSubmit}>
-        {error && <Alert variant="danger">{error}</Alert>}
-        {created && <Alert variant="success">Task #{created.task_id} created.</Alert>}
+    <MainCard title={`Add task — ${options.project.project_name}`}>
+      <p className="text-muted">
+        New tasks start with New status automatically.
+      </p>
 
-        <Row className="g-3">
-          <Col md={12}>
-            <Field label="Title" name="title" errors={fieldErrors.title}>
-              <Form.Control
-                type="text"
-                maxLength={200}
-                value={form.title}
-                isInvalid={Boolean(fieldErrors.title)}
-                onChange={(event) => setField('title', event.target.value)}
-              />
-            </Field>
-          </Col>
+      <Form onSubmit={submit} className="col-lg-8">
+        <Form.Group className="mb-3">
+          <Form.Label>Task title</Form.Label>
+          <Form.Control
+            name="title"
+            value={values.title}
+            onChange={change}
+            maxLength={200}
+            required
+          />
+        </Form.Group>
 
-          <Col md={12}>
-            <Field label="Description" name="description" errors={fieldErrors.description}>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={form.description}
-                isInvalid={Boolean(fieldErrors.description)}
-                onChange={(event) => setField('description', event.target.value)}
-              />
-            </Field>
-          </Col>
+        <Form.Group className="mb-3">
+          <Form.Label>Description</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={3}
+            name="description"
+            value={values.description}
+            onChange={change}
+          />
+        </Form.Group>
 
-          <Col md={3}>
-            <Field label="Task type id" name="task_type_id" errors={fieldErrors.task_type_id}>
-              <Form.Control
-                type="number"
-                min={1}
-                value={form.task_type_id}
-                isInvalid={Boolean(fieldErrors.task_type_id)}
-                onChange={(event) => setField('task_type_id', event.target.value)}
-              />
-            </Field>
-          </Col>
+        <div className="row">
+          <Form.Group className="col-md-4 mb-3">
+            <Form.Label>Task type</Form.Label>
+            <Form.Select name="task_type_id" value={values.task_type_id} onChange={change} required>
+              <option value="">Choose type</option>
+              {options.task_types.map((item) => (
+                <option key={item.task_type_id} value={item.task_type_id}>
+                  {item.type_name}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
 
-          <Col md={3}>
-            <Field label="Status id" name="status_id" errors={fieldErrors.status_id}>
-              <Form.Control
-                type="number"
-                min={1}
-                value={form.status_id}
-                isInvalid={Boolean(fieldErrors.status_id)}
-                onChange={(event) => setField('status_id', event.target.value)}
-              />
-            </Field>
-          </Col>
+          <Form.Group className="col-md-4 mb-3">
+            <Form.Label>Priority</Form.Label>
+            <Form.Select name="priority_id" value={values.priority_id} onChange={change} required>
+              <option value="">Choose priority</option>
+              {options.priorities.map((item) => (
+                <option key={item.priority_id} value={item.priority_id}>
+                  {item.priority_name}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
 
-          <Col md={3}>
-            <Field label="Priority id" name="priority_id" errors={fieldErrors.priority_id}>
-              <Form.Control
-                type="number"
-                min={1}
-                value={form.priority_id}
-                isInvalid={Boolean(fieldErrors.priority_id)}
-                onChange={(event) => setField('priority_id', event.target.value)}
-              />
-            </Field>
-          </Col>
-
-          <Col md={3}>
-            <Field label="Assignee user id" name="assignee_id" errors={fieldErrors.assignee_id} help="Must be a member of this project.">
-              <Form.Control
-                type="number"
-                min={1}
-                value={form.assignee_id}
-                isInvalid={Boolean(fieldErrors.assignee_id)}
-                onChange={(event) => setField('assignee_id', event.target.value)}
-              />
-            </Field>
-          </Col>
-
-          <Col md={4}>
-            <Field label="Start date" name="start_date" errors={fieldErrors.start_date}>
-              <Form.Control
-                type="date"
-                value={form.start_date}
-                isInvalid={Boolean(fieldErrors.start_date)}
-                onChange={(event) => setField('start_date', event.target.value)}
-              />
-            </Field>
-          </Col>
-
-          <Col md={4}>
-            <Field label="Due date" name="due_date" errors={fieldErrors.due_date}>
-              <Form.Control
-                type="date"
-                value={form.due_date}
-                isInvalid={Boolean(fieldErrors.due_date)}
-                onChange={(event) => setField('due_date', event.target.value)}
-              />
-            </Field>
-          </Col>
-
-          <Col md={4}>
-            <Field label="Estimated hours" name="estimated_hours" errors={fieldErrors.estimated_hours}>
-              <Form.Control
-                type="number"
-                min={0}
-                step="0.25"
-                value={form.estimated_hours}
-                isInvalid={Boolean(fieldErrors.estimated_hours)}
-                onChange={(event) => setField('estimated_hours', event.target.value)}
-              />
-            </Field>
-          </Col>
-        </Row>
-
-        <div className="mt-4">
-          <Button type="submit" disabled={saving}>
-            {saving && <Spinner animation="border" size="sm" className="me-2" />}
-            Create task
-          </Button>
+          <Form.Group className="col-md-4 mb-3">
+            <Form.Label>Assignee</Form.Label>
+            <Form.Select name="assignee_id" value={values.assignee_id} onChange={change} required>
+              <option value="">Choose assignee</option>
+              {options.users.map((item) => (
+                <option key={item.user_id} value={item.user_id}>
+                  {item.name} — {item.role_name}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
         </div>
+
+        <div className="row">
+          <Form.Group className="col-md-4 mb-3">
+            <Form.Label>Start date</Form.Label>
+            <Form.Control type="date" name="start_date" value={values.start_date} onChange={change} />
+          </Form.Group>
+          <Form.Group className="col-md-4 mb-3">
+            <Form.Label>Due date</Form.Label>
+            <Form.Control type="date" name="due_date" value={values.due_date} onChange={change} />
+          </Form.Group>
+          <Form.Group className="col-md-4 mb-3">
+            <Form.Label>Estimated hours</Form.Label>
+            <Form.Control
+              type="number"
+              min="0"
+              step="0.25"
+              name="estimated_hours"
+              value={values.estimated_hours}
+              onChange={change}
+            />
+          </Form.Group>
+        </div>
+
+        <Form.Group className="mb-3">
+          <Form.Label>Attachment</Form.Label>
+          <Form.Control
+            type="file"
+            onChange={chooseAttachment}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
+          />
+          <Form.Text>Optional. Maximum 10 MB.</Form.Text>
+        </Form.Group>
+
+        {canNotify && (
+          <Form.Check
+            className="mb-3"
+            type="switch"
+            id="notify-assignee"
+            checked={notifyAssignee}
+            onChange={(event) => setNotifyAssignee(event.target.checked)}
+            label="Email the assignee when this task is created"
+          />
+        )}
+
+        {error && <div className="alert alert-danger">{error}</div>}
+
+        <Button type="submit" disabled={busy}>
+          {busy ? 'Adding task...' : 'Add task'}
+        </Button>
+        <Link to={`/projects/${projectId}/tasks`} className="btn btn-link ms-2">
+          Cancel
+        </Link>
       </Form>
     </MainCard>
   );
 }
-
-/**
- * One labelled control and whatever the API said about it.
- *
- * `errors` is the list DRF sent for this field, so a rule added to the
- * serializer shows up here without a change to this file.
- */
-function Field({ label, name, errors, help, children }) {
-  return (
-    <Form.Group controlId={`task-${name}`}>
-      <Form.Label>{label}</Form.Label>
-      {children}
-      {errors && <Form.Control.Feedback type="invalid">{[].concat(errors).join(' ')}</Form.Control.Feedback>}
-      {help && !errors && <Form.Text className="text-muted">{help}</Form.Text>}
-    </Form.Group>
-  );
-}
-
-Field.propTypes = {
-  label: PropTypes.string,
-  name: PropTypes.string,
-  errors: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
-  help: PropTypes.string,
-  children: PropTypes.node
-};
-
-TaskCreate.propTypes = {
-  projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  onCreated: PropTypes.func
-};

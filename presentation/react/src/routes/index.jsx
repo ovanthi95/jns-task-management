@@ -12,6 +12,7 @@ import TasksRoutes from './TasksRoutes';
 import UsersRoutes from './UsersRoutes';
 import ProjectsRoutes from './ProjectsRoutes';
 import TaskFilesRoutes from './TaskFilesRoutes';
+import HistoryRoutes from './HistoryRoutes';
 import NotFound from 'views/errors/NotFound';
 import BadRequest from 'views/errors/BadRequest';
 import Timeout from 'views/errors/Timeout';
@@ -39,6 +40,7 @@ const router = createBrowserRouter(
     UsersRoutes,
     ProjectsRoutes,
     TaskFilesRoutes,
+    HistoryRoutes,
     {
       path: '*',
       element: <NotFound />

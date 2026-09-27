@@ -2,6 +2,7 @@
 # Owner: Jessie
 
 from data_access.projects.create_project import create_project
+from users.services.permission_service import actor_has_permission
 
 
 class ProjectCreateError(Exception):
@@ -33,12 +34,9 @@ def create_project_service(
             "Authentication required."
         )
 
-    # Only Admin or Manager can create a project.
-    role_name = current_user.get("role_name", "")
-
-    if role_name.lower() not in ("admin", "manager"):
+    if not actor_has_permission(current_user, "create_projects"):
         raise ProjectPermissionError(
-            "Only Admin or Manager can create a project."
+            "Your role is not permitted to create projects."
         )
 
     # Project name is required.

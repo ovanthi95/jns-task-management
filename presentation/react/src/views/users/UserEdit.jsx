@@ -67,8 +67,8 @@ export default function UserEdit() {
     };
   }, [userId]);
 
-  const isAdmin =
-    String(currentUser?.role_name || '').toLowerCase() === 'admin';
+  const canManageUsers =
+    (currentUser?.permissions || []).includes('manage_users');
 
   const editingSelf =
     Number(currentUser?.user_id) === Number(userId);
@@ -119,10 +119,10 @@ export default function UserEdit() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canManageUsers) {
     return (
       <MainCard title="Edit user">
-        <Alert variant="warning">Admin role required.</Alert>
+        <Alert variant="warning">User management permission required.</Alert>
         <Link to="/users">Back to users</Link>
       </MainCard>
     );

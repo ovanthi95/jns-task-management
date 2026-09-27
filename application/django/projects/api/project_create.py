@@ -17,56 +17,56 @@ from users.services.session_service import get_authenticated_session_user
 class ProjectCreateRequestSerializer(serializers.Serializer):
     project_name = serializers.CharField(
         max_length=150,
-        allow_blank=False
+        allow_blank=False,
+        trim_whitespace=True,
     )
-
     description = serializers.CharField(
         required=False,
         allow_blank=True,
-        allow_null=True
+        allow_null=True,
+        trim_whitespace=True,
     )
-
-    start_date = serializers.DateField(
-        required=False,
-        allow_null=True
-    )
-
-    end_date = serializers.DateField(
-        required=False,
-        allow_null=True
-    )
-
+    start_date = serializers.DateField(required=False, allow_null=True)
+    end_date = serializers.DateField(required=False, allow_null=True)
     member_ids = serializers.ListField(
-        child=serializers.IntegerField(),
+        child=serializers.IntegerField(min_value=1),
         required=False,
-        allow_empty=True
+        allow_empty=True,
     )
+
+    def validate(self, attrs):
+        start_date = attrs.get("start_date")
+        end_date = attrs.get("end_date")
+
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError({
+                "end_date": ["End date cannot be before start date."]
+            })
+
+        return attrs
 
 
 class ProjectCreateView(APIView):
 
     def post(self, request):
-        # Validate request body.
-        serializer = ProjectCreateRequestSerializer(
-            data=request.data
-        )
+        serializer = ProjectCreateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Get the authenticated user from the Django session.
         user_id = request.session.get("user_id")
 
         if not user_id:
             return Response(
                 {"detail": "Authentication required."},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         current_user = get_authenticated_session_user(user_id)
 
         if current_user is None:
+            request.session.flush()
             return Response(
                 {"detail": "Authentication required."},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         data = serializer.validated_data
@@ -78,31 +78,42 @@ class ProjectCreateView(APIView):
                 description=data.get("description"),
                 start_date=data.get("start_date"),
                 end_date=data.get("end_date"),
-                member_ids=data.get("member_ids", [])
+                member_ids=data.get("member_ids", []),
             )
-
         except ProjectPermissionError as exc:
             return Response(
                 {"detail": str(exc)},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
-
         except ProjectValidationError as exc:
             return Response(
                 {"detail": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
+        except DatabaseError as exc:
+            message = str(exc).lower()
 
-        except DatabaseError:
+            if "project name is required" in message:
+                return Response(
+                    {"project_name": ["Project name is required."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if "end date cannot be before start date" in message:
+                return Response(
+                    {"end_date": ["End date cannot be before start date."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if "invalid or inactive" in message:
+                return Response(
+                    {"member_ids": ["One or more project members are invalid or inactive."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             return Response(
                 {"detail": "Unable to create project."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response(
-            {
-                "message": "Project created successfully.",
-                "project": project
-            },
-            status=status.HTTP_201_CREATED
-        )
+        return Response(project, status=status.HTTP_201_CREATED)

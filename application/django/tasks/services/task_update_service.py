@@ -13,6 +13,7 @@ stored-procedure architecture as API 06/07/10.
 
 from django.db import transaction
 
+from audit.services.history_recording import record_history
 from data_access.tasks.check_task_lookups import check_task_lookups
 from data_access.tasks.get_project_tasks import get_project_tasks
 from data_access.tasks.get_project_user_access import get_project_user_access
@@ -63,7 +64,12 @@ def update_task_details(*, actor, task_id, changes):
     current = current_rows[0]
 
     target_status = _target_status(changes)
-    _authorise(actor=actor, current=current, changes=changes, target_status=target_status)
+    _authorise(
+        actor=actor,
+        current=current,
+        changes=changes,
+        target_status=target_status,
+    )
     _validate_lookups(current=current, changes=changes)
     _validate_assignee(
         project_id=access["project_id"],
@@ -80,16 +86,80 @@ def update_task_details(*, actor, task_id, changes):
             changes=changes,
         )
 
-    updated = get_project_tasks(
-        project_id=access["project_id"],
-        task_id=task_id,
-    )
+        updated_rows = get_project_tasks(
+            project_id=access["project_id"],
+            task_id=task_id,
+        )
 
-    if not updated:
-        raise TaskNotVisible()
+        if not updated_rows:
+            raise TaskNotVisible()
 
-    return updated[0]
+        updated = updated_rows[0]
+        _record_central_history(
+            actor=actor,
+            organisation_id=access["organisation_id"],
+            current=current,
+            updated=updated,
+            changes=changes,
+        )
 
+    return updated
+
+
+def _history_value(task, field_name):
+    if field_name == "task_type_id":
+        return task.get("task_type_name")
+    if field_name == "priority_id":
+        return task.get("priority_name")
+    if field_name == "status_id":
+        return task.get("status_name")
+    if field_name == "assignee_id":
+        assignees = task.get("assignees") or []
+        if not assignees:
+            return None
+        first = assignees[0]
+        return (
+            f"{first.get('first_name', '')} {first.get('last_name', '')}"
+        ).strip()
+    return task.get(field_name)
+
+
+def _history_field_name(field_name):
+    return {
+        "task_type_id": "task_type",
+        "priority_id": "priority",
+        "status_id": "status",
+        "assignee_id": "assignee",
+    }.get(field_name, field_name)
+
+
+def _record_central_history(
+    *,
+    actor,
+    organisation_id,
+    current,
+    updated,
+    changes,
+):
+    for field_name in changes:
+        old_value = _history_value(current, field_name)
+        new_value = _history_value(updated, field_name)
+
+        if old_value == new_value:
+            continue
+
+        record_history(
+            organisation_id=organisation_id,
+            user_id=actor["user_id"],
+            entity_type="Task",
+            entity_id=updated["task_id"],
+            entity_name=updated["title"],
+            action="Updated",
+            field_name=_history_field_name(field_name),
+            old_value=old_value,
+            new_value=new_value,
+            description=f'Updated task "{updated["title"]}".',
+        )
 
 def _target_status(changes):
     if "status_id" not in changes:
@@ -106,32 +176,40 @@ def _target_status(changes):
 
 
 def _authorise(*, actor, current, changes, target_status):
-    role_name = str(actor.get("role_name") or "").strip().lower()
+    permissions = set(actor.get("permissions") or [])
 
-    if role_name in FULL_EDIT_ROLES:
-        if "assignee_id" in changes and role_name not in REASSIGN_ROLES:
-            raise TaskUpdateNotPermitted()
-        return
-
-    # Standard users may only submit one change: status -> Completed.
-    if set(changes) != {"status_id"}:
-        raise TaskUpdateNotPermitted()
-
-    assignee_ids = {
-        int(person["user_id"])
-        for person in current.get("assignees", [])
-        if person.get("user_id") is not None
-    }
-
-    if actor["user_id"] not in assignee_ids:
+    detail_changes = DETAIL_FIELDS.intersection(changes)
+    if detail_changes and "edit_tasks" not in permissions:
         raise TaskUpdateNotPermitted()
 
     if (
-        target_status is None
-        or str(target_status["status_name"]).strip().lower() != "completed"
+        "assignee_id" in changes
+        and "reassign_tasks" not in permissions
     ):
         raise TaskUpdateNotPermitted()
 
+    if (
+        "status_id" in changes
+        and "change_any_task_status" not in permissions
+    ):
+        assignee_ids = {
+            int(person["user_id"])
+            for person in current.get("assignees", [])
+            if person.get("user_id") is not None
+        }
+
+        if actor["user_id"] not in assignee_ids:
+            raise TaskUpdateNotPermitted()
+
+        if "complete_assigned_tasks" not in permissions:
+            raise TaskUpdateNotPermitted()
+
+        if (
+            target_status is None
+            or str(target_status["status_name"]).strip().lower()
+            != "completed"
+        ):
+            raise TaskUpdateNotPermitted()
 
 def _validate_lookups(*, current, changes):
     lookup_fields = {"task_type_id", "status_id", "priority_id"}

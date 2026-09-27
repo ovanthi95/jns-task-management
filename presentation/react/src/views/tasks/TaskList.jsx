@@ -7,6 +7,7 @@ import { Link, useParams } from 'react-router-dom';
 import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
+import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
@@ -325,14 +326,22 @@ export default function TaskList() {
                 <td className="text-end">{task.estimated_hours || '—'}</td>
 
                 <td className="text-end">
-                  <Button
-                    as={Link}
-                    to={`/projects/${projectId}/tasks/${task.task_id}/edit`}
-                    size="sm"
-                    variant="outline-primary"
-                  >
-                    Edit
-                  </Button>
+                  <ButtonGroup size="sm">
+                    <Button
+                      as={Link}
+                      to={`/projects/${projectId}/tasks/${task.task_id}/comments`}
+                      variant="outline-secondary"
+                    >
+                      Comment
+                    </Button>
+                    <Button
+                      as={Link}
+                      to={`/projects/${projectId}/tasks/${task.task_id}/edit`}
+                      variant="outline-primary"
+                    >
+                      Edit
+                    </Button>
+                  </ButtonGroup>
                 </td>
               </tr>
             ))}

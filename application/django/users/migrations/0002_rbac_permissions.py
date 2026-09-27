@@ -124,4 +124,4 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(seed_permissions, migrations.RunPython.noop),
     ]
-}
+]

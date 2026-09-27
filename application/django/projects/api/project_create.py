@@ -2,6 +2,8 @@
 # Owner: Jessie
 
 from django.db import DatabaseError
+
+from audit.models import AuditLog
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -115,5 +117,20 @@ class ProjectCreateView(APIView):
                 {"detail": "Unable to create project."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        AuditLog.objects.create(
+            organisation_id=current_user["organisation_id"],
+            user_id=current_user["user_id"],
+            action="Created",
+            entity_type="Project",
+            entity_id=project["project_id"],
+            entity_name=project["project_name"],
+            description="Project created.",
+            new_value={
+                "status": project.get("status"),
+                "start_date": str(project.get("start_date") or ""),
+                "end_date": str(project.get("end_date") or ""),
+            },
+        )
 
         return Response(project, status=status.HTTP_201_CREATED)

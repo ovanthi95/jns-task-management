@@ -8,7 +8,7 @@ DROP PROCEDURE IF EXISTS sp_get_users;
 DELIMITER $$
 
 CREATE PROCEDURE sp_get_users(
-    IN p_organisation_id INT
+    IN p_organisation_id BIGINT
 )
 BEGIN
     SELECT
@@ -19,12 +19,22 @@ BEGIN
         u.role_id,
         r.role_name,
         u.availability,
-        u.status
+        u.status,
+        u.created_at,
+        u.updated_at
     FROM users u
     INNER JOIN roles r
         ON r.role_id = u.role_id
     WHERE u.organisation_id = p_organisation_id
-    ORDER BY u.last_name, u.first_name, u.user_id;
+    ORDER BY
+        CASE LOWER(u.status)
+            WHEN 'active' THEN 1
+            WHEN 'inactive' THEN 2
+            ELSE 3
+        END,
+        u.first_name,
+        u.last_name,
+        u.user_id;
 END $$
 
 DELIMITER ;

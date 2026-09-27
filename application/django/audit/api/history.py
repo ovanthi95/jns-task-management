@@ -277,7 +277,7 @@ class HistoryView(APIView):
             .filter(organisation_id=actor["organisation_id"])
             .filter(
                 Q(audit_logs__isnull=False)
-                | Q(task_history_entries__isnull=False)
+                | Q(task_changes__isnull=False)
             )
             .distinct()
             .order_by("first_name", "last_name")

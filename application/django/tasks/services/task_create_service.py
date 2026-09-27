@@ -7,10 +7,10 @@ from data_access.tasks.create_task import create_task as create_task_row
 from data_access.tasks.get_project_tasks import get_project_tasks
 from data_access.tasks.get_project_user_access import get_project_user_access
 
+from users.services.permission_service import actor_has_permission
+
 from .exceptions import InvalidTaskInput, RoleNotPermitted
 from .project_access import require_visible_project
-
-TASK_CREATOR_ROLES = frozenset({"admin", "manager"})
 
 LOOKUP_FIELDS = (
     ("task_type_id", "task_type_exists", "No task type with that id."),
@@ -20,11 +20,7 @@ LOOKUP_FIELDS = (
 
 
 def user_may_create_task(user):
-    if not user:
-        return False
-
-    role_name = user.get("role_name")
-    return bool(role_name) and role_name.lower() in TASK_CREATOR_ROLES
+    return actor_has_permission(user, "create_tasks")
 
 
 def create_task(*, project_id, user, data):

@@ -13,11 +13,13 @@ import MainCard from 'components/MainCard';
 import { getSessionUser } from 'services/auth/sessionService';
 import { getUsers } from 'services/users/userListService';
 import { updateUser } from 'services/users/userUpdateService';
+import { getRoles } from 'services/users/roleService';
 
 export default function UserEdit() {
   const { userId } = useParams();
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [values, setValues] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,12 +29,13 @@ export default function UserEdit() {
   useEffect(() => {
     let active = true;
 
-    Promise.all([getSessionUser(), getUsers()])
-      .then(([sessionUser, rows]) => {
+    Promise.all([getSessionUser(), getUsers(), getRoles()])
+      .then(([sessionUser, rows, roleData]) => {
         if (!active) return;
 
         setCurrentUser(sessionUser);
         setUsers(rows);
+        setRoles((roleData.roles || []).filter((role) => role.is_active));
 
         const user = rows.find(
           (item) => String(item.user_id) === String(userId)
@@ -70,9 +73,7 @@ export default function UserEdit() {
   const editingSelf =
     Number(currentUser?.user_id) === Number(userId);
 
-  const roleOptions = Array.from(
-    new Set(users.map((user) => user.role_name).filter(Boolean))
-  ).sort();
+  const roleOptions = roles;
 
   const change = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
@@ -186,8 +187,8 @@ export default function UserEdit() {
               }
             >
               {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role}
+                <option key={role.role_id} value={role.role_name}>
+                  {role.role_name}
                 </option>
               ))}
             </Form.Select>

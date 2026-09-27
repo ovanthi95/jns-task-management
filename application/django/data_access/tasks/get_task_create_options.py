@@ -1,4 +1,4 @@
-"""Read-only support data for the API 06 create-task form."""
+"""Read-only support data for task creation and list filters."""
 
 from ._procedure import call_procedure
 
@@ -11,6 +11,7 @@ def get_task_create_options(project_id):
     result = {
         "project": None,
         "task_types": [],
+        "task_statuses": [],
         "priorities": [],
         "users": [],
         "new_status_id": None,
@@ -30,13 +31,20 @@ def get_task_create_options(project_id):
                 "task_type_id": row["option_id"],
                 "type_name": row["option_name"],
             })
+        elif group == "task_status":
+            item = {
+                "status_id": row["option_id"],
+                "status_name": row["option_name"],
+            }
+            result["task_statuses"].append(item)
+
+            if (row["option_name"] or "").lower() == "new":
+                result["new_status_id"] = row["option_id"]
         elif group == "priority":
             result["priorities"].append({
                 "priority_id": row["option_id"],
                 "priority_name": row["option_name"],
             })
-        elif group == "new_status":
-            result["new_status_id"] = row["option_id"]
         elif group == "user":
             result["users"].append({
                 "user_id": row["option_id"],

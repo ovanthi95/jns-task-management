@@ -1,10 +1,11 @@
-name: Ovanthi APIs 09 11 12 verification
+name: JNS integration verification
 
 on:
   push:
     branches:
       - feature/ovanthi-api-09-11-12-clean
       - feature/supporting-rest-apis
+      - feature/full-app-integration
   pull_request:
     branches:
       - feature/api-08-task-update
@@ -72,6 +73,10 @@ jobs:
           tasks.api.test_comment_create
           audit.api.test_task_audit
           users.api.test_user_update
+          audit.api.test_history
+          users.api.test_role_management
+          users.api.test_workload
+          users.test_permissions
           --verbosity 1
 
       - name: Run full Django suite

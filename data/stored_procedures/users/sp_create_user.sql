@@ -1,9 +1,6 @@
 -- API 03 - User create
 -- Owner: Manatka
--- Inserts one user into one organisation and returns the new row (same shape as sp_get_users).
--- p_password_hash must already be hashed by Django. A plain password must never reach this procedure.
--- Duplicate (organisation_id, email) raises MySQL 1062 and unknown role_id raises 1452;
--- both are mapped to 400 field errors in the Django service, not here.
+-- Inserts one user into the authenticated user's organisation.
 
 DROP PROCEDURE IF EXISTS sp_create_user;
 
@@ -20,14 +17,63 @@ CREATE PROCEDURE sp_create_user(
 )
 BEGIN
     DECLARE v_user_id INT;
+    DECLARE v_email VARCHAR(150);
+
+    SET v_email = LOWER(TRIM(p_email));
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM organisations
+        WHERE organisation_id = p_organisation_id
+          AND LOWER(status) = 'active'
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Invalid organisation';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM roles
+        WHERE role_id = p_role_id
+          AND is_active = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Invalid role';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM users
+        WHERE organisation_id = p_organisation_id
+          AND LOWER(email) = v_email
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Email already exists';
+    END IF;
 
     INSERT INTO users (
-        organisation_id, role_id, first_name, last_name, email,
-        password_hash, availability, status, created_at, updated_at
+        organisation_id,
+        role_id,
+        first_name,
+        last_name,
+        email,
+        password_hash,
+        availability,
+        status,
+        created_at,
+        updated_at
     )
     VALUES (
-        p_organisation_id, p_role_id, p_first_name, p_last_name, p_email,
-        p_password_hash, p_availability, 'Active', NOW(6), NOW(6)
+        p_organisation_id,
+        p_role_id,
+        TRIM(p_first_name),
+        TRIM(p_last_name),
+        v_email,
+        p_password_hash,
+        p_availability,
+        'Active',
+        NOW(6),
+        NOW(6)
     );
 
     SET v_user_id = LAST_INSERT_ID();
@@ -40,7 +86,9 @@ BEGIN
         u.role_id,
         r.role_name,
         u.availability,
-        u.status
+        u.status,
+        u.created_at,
+        u.updated_at
     FROM users u
     INNER JOIN roles r
         ON r.role_id = u.role_id

@@ -3,6 +3,8 @@
 # POST /api/users
 
 from django.contrib.auth.password_validation import validate_password
+
+from audit.models import AuditLog
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
@@ -87,5 +89,20 @@ class UserCreateView(APIView):
                 exc.field_errors,
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        AuditLog.objects.create(
+            organisation_id=session_user["organisation_id"],
+            user_id=session_user["user_id"],
+            action="Created",
+            entity_type="User",
+            entity_id=user["user_id"],
+            entity_name=f'{user["first_name"]} {user["last_name"]}'.strip(),
+            description="User account created.",
+            new_value={
+                "email": user["email"],
+                "role_name": user["role_name"],
+                "status": user["status"],
+            },
+        )
 
         return Response(user, status=status.HTTP_201_CREATED)

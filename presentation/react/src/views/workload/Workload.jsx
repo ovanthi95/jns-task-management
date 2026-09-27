@@ -280,7 +280,7 @@ export default function Workload() {
               <tr key={user.user_id}>
                 <td>
                   <Link
-                    to={`/dashboard/workload/users/${user.user_id}`}
+                    to={`/workload/users/${user.user_id}`}
                     className="fw-semibold text-decoration-none"
                   >
                     {user.first_name} {user.last_name} →

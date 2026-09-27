@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.models import Role, User
+from users.services.permission_service import actor_has_permission
 from users.services.session_service import get_authenticated_session_user
 from users.services.user_update_service import edit_user
 
@@ -68,9 +69,9 @@ class UserUpdateView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if str(session_user.get("role_name") or "").strip().lower() != "admin":
+        if not actor_has_permission(session_user, "manage_users"):
             return Response(
-                {"detail": "Admin role required."},
+                {"detail": "User management permission required."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

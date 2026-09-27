@@ -103,7 +103,7 @@ export default function WorkloadUser() {
 
         <Button
           as={Link}
-          to="/dashboard/workload"
+          to="/workload"
           variant="outline-primary"
         >
           Back to Workload
@@ -118,7 +118,7 @@ export default function WorkloadUser() {
       secondary={
         <Button
           as={Link}
-          to="/dashboard/workload"
+          to="/workload"
           variant="outline-primary"
         >
           Back to Workload
@@ -300,7 +300,7 @@ export default function WorkloadUser() {
                             <Button
                               as={Link}
                               to={
-                                `/dashboard/projects/${task.project_id}`
+                                `/projects/${task.project_id}`
                                 + `/tasks/${task.task_id}`
                               }
                               size="sm"

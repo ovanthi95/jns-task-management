@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .api.comment_create import TaskCommentView
 from .api.file_upload import FileUploadView
 from .api.task_create import TaskCreateView
 from .api.task_list import TaskListView
@@ -26,6 +27,11 @@ urlpatterns = [
         "tasks/<int:task_id>",
         TaskUpdateView.as_view(),
         name="task-update",
+    ),
+    path(
+        "tasks/<int:task_id>/comments",
+        TaskCommentView.as_view(),
+        name="task-comments",
     ),
     path(
         "tasks/<int:task_id>/files",

@@ -1,6 +1,7 @@
 // API 03 UI - Create user
 // Owner: Manatka
 
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // react-bootstrap
@@ -16,7 +17,7 @@ import { useForm } from 'react-hook-form';
 // project-imports
 import MainCard from 'components/MainCard';
 import { useUserCreate } from 'logic/users/useUserCreate';
-import { ROLES } from 'utils/roles';
+import { getRoles } from 'services/users/roleService';
 import { emailSchema, firstNameSchema, lastNameSchema, passwordSchema } from 'utils/validationSchema';
 
 // ==============================|| USERS - CREATE (API 03) ||============================== //
@@ -28,6 +29,14 @@ import { emailSchema, firstNameSchema, lastNameSchema, passwordSchema } from 'ut
 export default function UserCreate() {
   const navigate = useNavigate();
   const { submit, submitting, serverErrors, generalError } = useUserCreate();
+  const [roles, setRoles] = useState([]);
+  const [roleError, setRoleError] = useState('');
+
+  useEffect(() => {
+    getRoles()
+      .then((data) => setRoles((data.roles || []).filter((role) => role.is_active)))
+      .catch((error) => setRoleError(error.message));
+  }, []);
 
   const {
     register,
@@ -45,6 +54,7 @@ export default function UserCreate() {
   return (
     <MainCard title="Create user" subheader={<p className="mb-0">The new user is added to your organisation</p>}>
       {generalError && <Alert variant="danger">{generalError}</Alert>}
+      {roleError && <Alert variant="danger">{roleError}</Alert>}
 
       <Form noValidate onSubmit={handleSubmit(onSubmit)}>
         <Row>
@@ -78,9 +88,9 @@ export default function UserCreate() {
             <Form.Label>Role</Form.Label>
             <Form.Select {...register('role_id', { required: 'Role is required' })} isInvalid={!!fieldError('role_id')}>
               <option value="">Select a role</option>
-              {ROLES.map((r) => (
-                <option key={r.role_id} value={r.role_id}>
-                  {r.role_name}
+              {roles.map((role) => (
+                <option key={role.role_id} value={role.role_id}>
+                  {role.role_name}
                 </option>
               ))}
             </Form.Select>

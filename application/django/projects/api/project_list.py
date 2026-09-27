@@ -15,33 +15,29 @@ from users.services.session_service import get_authenticated_session_user
 class ProjectListView(APIView):
 
     def get(self, request):
-        # Get the authenticated user from the Django session.
         user_id = request.session.get("user_id")
 
         if not user_id:
             return Response(
                 {"detail": "Authentication required."},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         current_user = get_authenticated_session_user(user_id)
 
         if current_user is None:
+            request.session.flush()
             return Response(
                 {"detail": "Authentication required."},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         try:
             projects = get_project_list(current_user)
-
         except ProjectListPermissionError as exc:
             return Response(
                 {"detail": str(exc)},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(
-            {"projects": projects},
-            status=status.HTTP_200_OK
-        )
+        return Response(projects, status=status.HTTP_200_OK)

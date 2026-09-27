@@ -329,6 +329,13 @@ export default function TaskList() {
                   <ButtonGroup size="sm">
                     <Button
                       as={Link}
+                      to={`/tasks/${task.task_id}/files`}
+                      variant="outline-secondary"
+                    >
+                      Files
+                    </Button>
+                    <Button
+                      as={Link}
                       to={`/projects/${projectId}/tasks/${task.task_id}/comments`}
                       variant="outline-secondary"
                     >

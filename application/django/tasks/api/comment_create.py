@@ -1,4 +1,4 @@
-"""API 09 - POST /api/tasks/:taskId/comments."""
+"""API 09 POST and supporting GET /api/tasks/:taskId/comments."""
 
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from tasks.services.comment_create_service import (
     CommentTaskNotFound,
     create_task_comment,
+    list_task_comments,
 )
 
 
@@ -20,6 +21,20 @@ class CommentCreateSerializer(serializers.Serializer):
 
 class TaskCommentView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id):
+        try:
+            rows = list_task_comments(
+                actor_user_id=request.user.user_id,
+                task_id=task_id,
+            )
+        except CommentTaskNotFound:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(rows, status=status.HTTP_200_OK)
 
     def post(self, request, task_id):
         serializer = CommentCreateSerializer(data=request.data)

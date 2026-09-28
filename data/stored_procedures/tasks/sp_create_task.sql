@@ -25,7 +25,7 @@
 
 DROP PROCEDURE IF EXISTS sp_create_task;
 
-DELIMITER $
+DELIMITER $$
 
 CREATE PROCEDURE sp_create_task (
     IN p_project_id        INT,
@@ -94,6 +94,6 @@ BEGIN
     );
 
     SELECT v_task_id AS task_id;
-END$
+END$$
 
 DELIMITER ;

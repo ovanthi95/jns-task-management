@@ -157,6 +157,9 @@ export default function UserList() {
       subheader={<p className="mb-0">All users in your organisation</p>}
       secondary={
         <div className="d-flex gap-2">
+          <Button as={Link} to="/workload" size="sm" variant="outline-secondary">
+            Workload
+          </Button>
           <Button as={Link} to="/roles" size="sm" variant="outline-secondary">
             Roles
           </Button>

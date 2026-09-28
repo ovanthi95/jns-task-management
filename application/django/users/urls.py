@@ -9,6 +9,7 @@ from users.api.user_list import UserListView
 from users.api.user_create import UserCreateView
 from users.api.user_update import UserUpdateView
 from users.api.role_management import RoleListCreateView, RoleUpdateView
+from users.api.workload import UserWorkloadTasksView, WorkloadView
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -24,4 +25,6 @@ urlpatterns = [
     path("users/<int:user_id>", UserUpdateView.as_view(), name="user-update"),
     path("roles", RoleListCreateView.as_view(), name="role-list-create"),
     path("roles/<int:role_id>", RoleUpdateView.as_view(), name="role-update"),
+    path("workload", WorkloadView.as_view(), name="workload"),
+    path("workload/users/<int:user_id>/tasks", UserWorkloadTasksView.as_view(), name="user-workload-tasks"),
 ]

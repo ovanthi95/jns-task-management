@@ -3,7 +3,7 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-function csrfToken() {
+export function csrfToken() {
   const cookie = document.cookie
     .split('; ')
     .find((part) => part.startsWith('csrftoken='));

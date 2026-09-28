@@ -489,6 +489,61 @@ class TaskUpdateApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(TaskHistory.objects.filter(task=self.task).exists())
 
+
+    # ------------------------------------------------------------ test-owner additions (Manatka)
+
+    def test_user_from_other_organisation_cannot_authenticate(self):
+        # Single-organisation deployment: sp_get_session_user only resolves
+        # JNS users, so a session for another organisation is rejected at the
+        # auth layer (401) before any task lookup.
+        self._login_as(self.other_user)
+
+        response = self.client.patch(self.url, {"title": "Changed"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.title, "Collect bank statements")
+
+    def test_admin_can_update_task_details(self):
+        self._login_as(self.admin)
+
+        response = self.client.patch(
+            self.url,
+            {"title": "Admin edited", "priority_id": self.low_priority.pk},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], "Admin edited")
+        self.assertEqual(response.data["priority_id"], self.low_priority.pk)
+
+    def test_assigned_employee_cannot_reassign(self):
+        self._login_as(self.worker)
+
+        response = self.client.patch(
+            self.url, {"assignee_id": self.replacement.pk}, format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(TaskAssignee.objects.filter(task=self.task, user=self.worker).exists())
+
+    def test_invalid_task_type_returns_400(self):
+        self._login_as(self.manager)
+
+        response = self.client.patch(self.url, {"task_type_id": 999999}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("task_type_id", response.data)
+
+    def test_negative_estimated_hours_returns_400(self):
+        self._login_as(self.manager)
+
+        response = self.client.patch(self.url, {"estimated_hours": "-1.00"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("estimated_hours", response.data)
+
     # ------------------------------------------------------------ helpers
 
     def _login_as(self, user):

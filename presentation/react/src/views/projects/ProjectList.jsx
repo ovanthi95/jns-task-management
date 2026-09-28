@@ -156,14 +156,22 @@ export default function ProjectList() {
                 </td>
 
                 <td className="text-end">
-                  <Button
-                    as={Link}
-                    to={`/projects/${project.project_id}/tasks`}
-                    size="sm"
-                    variant="outline-secondary"
-                  >
-                    Tasks
-                  </Button>
+                  <ButtonGroup size="sm">
+                    <Button
+                      as={Link}
+                      to={`/projects/${project.project_id}/edit`}
+                      variant="outline-primary"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      as={Link}
+                      to={`/projects/${project.project_id}/tasks`}
+                      variant="outline-secondary"
+                    >
+                      Tasks
+                    </Button>
+                  </ButtonGroup>
                 </td>
               </tr>
             ))}

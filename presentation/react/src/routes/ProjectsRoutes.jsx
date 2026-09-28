@@ -6,6 +6,7 @@ import RequireAuth from './RequireAuth';
 
 const ProjectList = Loadable(lazy(() => import('views/projects/ProjectList')));
 const ProjectCreate = Loadable(lazy(() => import('views/projects/ProjectCreate')));
+const ProjectEdit = Loadable(lazy(() => import('views/projects/ProjectEdit')));
 
 const ProjectsRoutes = {
   path: '/',
@@ -25,6 +26,10 @@ const ProjectsRoutes = {
         {
           path: 'projects/new',
           element: <ProjectCreate />
+        },
+        {
+          path: 'projects/:projectId/edit',
+          element: <ProjectEdit />
         }
       ]
     }

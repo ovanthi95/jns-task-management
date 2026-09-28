@@ -124,6 +124,66 @@ class TaskCommentApiTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    # ------------------------------------------------------------ test-owner additions (Manatka)
+
+    def test_comment_is_timestamped_and_attributed(self):
+        self._login_as(self.member)
+
+        response = self.client.post(self.url, {"comment_text": "Timestamp check"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["user_id"], self.member.user_id)
+        self.assertEqual(response.data["task_id"], self.task.task_id)
+        self.assertTrue(response.data.get("created_at"))
+
+    def test_missing_comment_text_returns_400(self):
+        self._login_as(self.member)
+
+        response = self.client.post(self.url, {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("comment_text", response.data)
+        self.assertFalse(Comment.objects.exists())
+
+    def test_comment_text_is_trimmed(self):
+        self._login_as(self.member)
+
+        response = self.client.post(self.url, {"comment_text": "   Trimmed text   "}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["comment_text"], "Trimmed text")
+
+    def test_admin_who_is_not_member_gets_404(self):
+        admin_role = Role.objects.create(role_name="Admin")
+        admin = User.objects.create_user(
+            email="admin@jns.test", organisation=self.org, role=admin_role,
+            password="Passw0rd!", first_name="Admin", last_name="User", status="Active",
+        )
+        self._login_as(admin)
+
+        response = self.client.post(self.url, {"comment_text": "Admin bypass?"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(Comment.objects.exists())
+
+    def test_user_from_other_organisation_cannot_authenticate(self):
+        # Same single-organisation rule as API 08: rejected at auth (401).
+        other_org = Organisation.objects.create(
+            organisation_name="Unrelated Charity", organisation_type="Charity",
+            email="hello@charity.test", phone="09-111-1111", address="Wellington", status="Active",
+        )
+        outsider = User.objects.create_user(
+            email="someone@charity.test", organisation=other_org, role=self.role,
+            password="Passw0rd!", first_name="Some", last_name="One", status="Active",
+        )
+        self._login_as(outsider)
+
+        response = self.client.post(self.url, {"comment_text": "Cross org"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(Comment.objects.exists())
+
+        
     def _login_as(self, user):
         session = self.client.session
         session["user_id"] = user.user_id

@@ -1,3 +1,6 @@
+// Shared role options introduced with APIs 02/03
+// Owner: Manatka
+
 // Shared role options for the prototype (playbook section 5 / 9.2).
 // Ids match seed_lookups.py on a freshly seeded database.
 // The backend still validates role_id; this is display only.

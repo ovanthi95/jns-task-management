@@ -55,6 +55,10 @@ export async function updateTask(taskId, changes) {
   );
 }
 
+export async function updateTaskStatus(taskId, statusId) {
+  return updateTask(taskId, { status_id: statusId });
+}
+
 function csrfHeader() {
   const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
   return match ? { 'X-CSRFToken': decodeURIComponent(match[1]) } : {};

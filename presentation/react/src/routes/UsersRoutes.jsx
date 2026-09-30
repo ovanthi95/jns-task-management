@@ -1,3 +1,6 @@
+// APIs 02/03 user routes
+// Feature owner: Manatka
+
 import { lazy } from 'react';
 
 import Loadable from 'components/Loadable';

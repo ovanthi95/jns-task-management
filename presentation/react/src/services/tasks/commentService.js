@@ -13,6 +13,24 @@ function csrfToken() {
     : '';
 }
 
+export async function getComments(taskId) {
+  const response = await fetch(
+    `${API_BASE_URL}/tasks/${taskId}/comments`,
+    {
+      method: 'GET',
+      credentials: 'include'
+    }
+  );
+
+  const data = await response.json().catch(() => ([]));
+
+  if (!response.ok) {
+    throw new Error(data.detail || 'Unable to load comments.');
+  }
+
+  return data;
+}
+
 export async function createComment(taskId, commentText) {
   const response = await fetch(
     `${API_BASE_URL}/tasks/${taskId}/comments`,

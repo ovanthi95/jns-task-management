@@ -13,6 +13,24 @@ function csrfToken() {
     : '';
 }
 
+export async function getFiles(taskId) {
+  const response = await fetch(
+    `${API_BASE_URL}/tasks/${taskId}/files`,
+    {
+      method: 'GET',
+      credentials: 'include'
+    }
+  );
+
+  const data = await response.json().catch(() => ([]));
+
+  if (!response.ok) {
+    throw new Error(data.detail || 'Unable to load attachments.');
+  }
+
+  return data;
+}
+
 export async function uploadFile(taskId, file) {
   const form = new FormData();
   form.append('file', file);

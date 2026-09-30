@@ -1,3 +1,6 @@
+# APIs 06/07 task serializers
+# Owner: Edward
+
 """Wire shapes for the two task services on the agreed REST list:
 
     API 06  POST /api/projects/:projectId/tasks

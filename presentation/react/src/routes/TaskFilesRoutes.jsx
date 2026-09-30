@@ -1,3 +1,6 @@
+// API 10 UI route
+// Owner: Manatka
+
 import { lazy } from 'react';
 
 // project-imports

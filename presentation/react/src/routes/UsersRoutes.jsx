@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import Loadable from 'components/Loadable';
 import DashboardLayout from 'layout/Dashboard';
 import RequireAuth from './RequireAuth';
+import RequirePermission from './RequirePermission';
 
 const UserList = Loadable(lazy(() => import('views/users/UserList')));
 const UserCreate = Loadable(lazy(() => import('views/users/UserCreate')));
@@ -19,9 +20,30 @@ const UsersRoutes = {
         </RequireAuth>
       ),
       children: [
-        { path: '', element: <UserList /> },
-        { path: 'new', element: <UserCreate /> },
-        { path: ':userId/edit', element: <UserEdit /> }
+        {
+          path: '',
+          element: (
+            <RequirePermission permissions={['manage_users']}>
+              <UserList />
+            </RequirePermission>
+          )
+        },
+        {
+          path: 'new',
+          element: (
+            <RequirePermission permissions={['manage_users']}>
+              <UserCreate />
+            </RequirePermission>
+          )
+        },
+        {
+          path: ':userId/edit',
+          element: (
+            <RequirePermission permissions={['manage_users']}>
+              <UserEdit />
+            </RequirePermission>
+          )
+        }
       ]
     }
   ]

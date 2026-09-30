@@ -3,12 +3,15 @@ import { lazy } from 'react';
 import DashboardLayout from 'layout/Dashboard';
 import Loadable from 'components/Loadable';
 import RequireAuth from './RequireAuth';
+import RequirePermission from './RequirePermission';
 
 const TaskListPage = Loadable(lazy(() => import('views/tasks/TaskList')));
 const TaskCreatePage = Loadable(lazy(() => import('views/tasks/TaskCreate')));
+const TaskDetailPage = Loadable(lazy(() => import('views/tasks/TaskDetail')));
 const TaskEditPage = Loadable(lazy(() => import('views/tasks/TaskEdit')));
 const TaskCommentsPage = Loadable(lazy(() => import('views/tasks/TaskComments')));
 const TaskAuditPage = Loadable(lazy(() => import('views/tasks/TaskAudit')));
+const TaskKanbanPage = Loadable(lazy(() => import('views/tasks/TaskKanban')));
 
 const TasksRoutes = {
   path: '/',
@@ -22,10 +25,26 @@ const TasksRoutes = {
       ),
       children: [
         { path: 'projects/:projectId/tasks', element: <TaskListPage /> },
-        { path: 'projects/:projectId/tasks/new', element: <TaskCreatePage /> },
-        { path: 'projects/:projectId/tasks/:taskId/edit', element: <TaskEditPage /> },
+        {
+          path: 'projects/:projectId/tasks/new',
+          element: (
+            <RequirePermission permissions={['create_tasks']}>
+              <TaskCreatePage />
+            </RequirePermission>
+          )
+        },
+        { path: 'projects/:projectId/tasks/:taskId', element: <TaskDetailPage /> },
+        {
+          path: 'projects/:projectId/tasks/:taskId/edit',
+          element: (
+            <RequirePermission permissions={['edit_tasks', 'reassign_tasks']} any>
+              <TaskEditPage />
+            </RequirePermission>
+          )
+        },
         { path: 'projects/:projectId/tasks/:taskId/comments', element: <TaskCommentsPage /> },
-        { path: 'projects/:projectId/tasks/:taskId/audit', element: <TaskAuditPage /> }
+        { path: 'projects/:projectId/tasks/:taskId/audit', element: <TaskAuditPage /> },
+        { path: 'projects/:projectId/kanban', element: <TaskKanbanPage /> }
       ]
     }
   ]

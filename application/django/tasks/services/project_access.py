@@ -43,7 +43,9 @@ def require_visible_project(*, project_id, user):
     if access["project_organisation_id"] != user.organisation_id:
         raise ProjectNotVisible()
 
-    if not access["is_member"]:
+    permissions = set(getattr(user, "permissions", []) or [])
+
+    if not access["is_member"] and "view_all_projects" not in permissions:
         raise ProjectNotVisible()
 
     return access

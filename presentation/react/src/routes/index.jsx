@@ -9,8 +9,10 @@ import PagesRoutes from './PagesRoutes';
 import NavigationRoutes from './NavigationRoutes';
 import TablesRoutes from './TablesRoutes';
 import TasksRoutes from './TasksRoutes';
+import ProjectsRoutes from './ProjectsRoutes';
 import UsersRoutes from './UsersRoutes';
 import TaskFilesRoutes from './TaskFilesRoutes';
+import ManagementRoutes from './ManagementRoutes';
 import NotFound from 'views/errors/NotFound';
 import BadRequest from 'views/errors/BadRequest';
 import Timeout from 'views/errors/Timeout';
@@ -32,11 +34,13 @@ const router = createBrowserRouter(
     FormsRoutes,
     TablesRoutes,
     TasksRoutes,
+    ProjectsRoutes,
     PagesRoutes,
     OtherRoutes,
     ChartMapRoutes,
     UsersRoutes,
     TaskFilesRoutes,
+    ManagementRoutes,
     {
       path: '*',
       element: <NotFound />

@@ -1,6 +1,14 @@
-"""API 09 data access
+"""API 09 comment persistence."""
 
-Owner: Ovanthi
-This module must call exactly one stored procedure: sp_add_comment.
-Do not put application/business logic here.
-"""
+from ._procedure import call_procedure
+
+PROCEDURE_NAME = "sp_add_comment"
+
+
+def add_comment(*, task_id, user_id, comment_text):
+    rows = call_procedure(
+        PROCEDURE_NAME,
+        [task_id, user_id, comment_text],
+    )
+
+    return rows[0] if rows else None

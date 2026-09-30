@@ -1,10 +1,5 @@
 -- API 04 - Create Project
 -- Owner: Jessie
--- Endpoint: POST /api/projects
--- Stored procedure: sp_create_project
---
--- Creates a project and its project memberships atomically.
--- Member IDs are supplied as a JSON array, for example: [2, 5, 8].
 
 DROP PROCEDURE IF EXISTS sp_create_project;
 
@@ -24,7 +19,6 @@ BEGIN
     DECLARE v_member_count INT DEFAULT 0;
     DECLARE v_valid_member_count INT DEFAULT 0;
 
-    -- Roll back the whole operation if any SQL error occurs.
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
@@ -33,11 +27,6 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Validate project members.
-    -- Every member must:
-    -- 1. exist,
-    -- 2. belong to the same organisation,
-    -- 3. have Active status.
     IF p_member_ids IS NOT NULL
        AND JSON_LENGTH(p_member_ids) > 0 THEN
 
@@ -61,10 +50,19 @@ BEGIN
                 SET MESSAGE_TEXT =
                     'One or more project members are invalid or inactive.';
         END IF;
-
     END IF;
 
-    -- Create the project.
+    IF NOT EXISTS (
+        SELECT 1
+        FROM users
+        WHERE user_id = p_created_by
+          AND organisation_id = p_organisation_id
+          AND LOWER(status) = 'active'
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Project creator is invalid or inactive.';
+    END IF;
+
     INSERT INTO projects (
         organisation_id,
         project_name,
@@ -78,8 +76,8 @@ BEGIN
     )
     VALUES (
         p_organisation_id,
-        p_project_name,
-        p_description,
+        TRIM(p_project_name),
+        NULLIF(TRIM(p_description), ''),
         'Active',
         p_start_date,
         p_end_date,
@@ -90,11 +88,24 @@ BEGIN
 
     SET v_project_id = LAST_INSERT_ID();
 
-    -- Create project memberships.
+    -- Creator membership is guaranteed even when the client omits member_ids.
+    INSERT INTO project_members (
+        project_id,
+        user_id,
+        project_role,
+        joined_at
+    )
+    VALUES (
+        v_project_id,
+        p_created_by,
+        NULL,
+        NOW()
+    );
+
     IF p_member_ids IS NOT NULL
        AND JSON_LENGTH(p_member_ids) > 0 THEN
 
-        INSERT INTO project_members (
+        INSERT IGNORE INTO project_members (
             project_id,
             user_id,
             project_role,
@@ -111,12 +122,10 @@ BEGIN
                 user_id INT PATH '$'
             )
         ) AS member_data;
-
     END IF;
 
     COMMIT;
 
-    -- Return the newly created project.
     SELECT
         p.project_id,
         p.organisation_id,
@@ -130,7 +139,6 @@ BEGIN
         p.updated_at
     FROM projects p
     WHERE p.project_id = v_project_id;
-
 END $$
 
 DELIMITER ;

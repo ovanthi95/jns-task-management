@@ -7,11 +7,12 @@ import uiComponents from './ui-components';
 import tableRoutes from './tables';
 import navigation from './navigation';
 import users from './users';
+import management from './management';
 
 // ==============================|| MENU ITEMS ||============================== //
 
 const menuItems = {
-  items: [navigation, users, uiComponents, formComponents, tableRoutes, chartsMaps, pages, other]
+  items: [navigation, users, management, uiComponents, formComponents, tableRoutes, chartsMaps, pages, other]
 };
 
 export default menuItems;

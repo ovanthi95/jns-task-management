@@ -1,15 +1,14 @@
 from django.core.management.base import BaseCommand
 
 from users.models import Role
+from users.services.permission_service import ensure_default_permissions
 from tasks.models import TaskType, TaskStatus, Priority
 
 
 class Command(BaseCommand):
-    help = "Create the initial global lookup data for WorkLink Cloud"
+    help = "Create the initial lookup and permission data for JNS Task Management"
 
     def handle(self, *args, **options):
-
-        # Roles
         roles = [
             ("Admin", "System and organisation administration"),
             ("Manager", "Project and task management"),
@@ -27,7 +26,8 @@ class Command(BaseCommand):
                 }
             )
 
-        # Task types
+        ensure_default_permissions()
+
         task_types = [
             ("Accounting", "Accounting-related work"),
             ("Taxation", "Tax-related work"),
@@ -44,7 +44,6 @@ class Command(BaseCommand):
                 }
             )
 
-        # Task workflow statuses
         statuses = [
             ("New", False),
             ("Assigned", False),
@@ -64,7 +63,6 @@ class Command(BaseCommand):
                 }
             )
 
-        # Priorities
         priorities = [
             ("Low", 1),
             ("Medium", 2),
@@ -83,5 +81,5 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(
-            self.style.SUCCESS("Lookup data created successfully.")
+            self.style.SUCCESS("Lookup and permission data created successfully.")
         )

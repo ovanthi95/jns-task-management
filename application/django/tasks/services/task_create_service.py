@@ -24,6 +24,7 @@ exactly one stored procedure.
 
 from django.db import transaction
 
+from audit.services.history_recording import record_history
 from data_access.tasks.check_task_lookups import check_task_lookups
 from data_access.tasks.create_task import create_task as create_task_row
 from data_access.tasks.get_project_tasks import get_project_tasks
@@ -45,15 +46,13 @@ LOOKUP_FIELDS = (
 
 
 def user_may_create_task(user):
-    """The role rule on its own, so the endpoint can answer it before parsing.
+    """Return whether the authenticated principal may create tasks."""
+    permissions = set(getattr(user, "permissions", []) or [])
 
-    The rule lives here rather than in the endpoint so there is one definition
-    of it. create_task applies it again, which means the rule still holds if
-    this service is ever called from somewhere that has no HTTP layer in front
-    of it.
-    """
+    if permissions:
+        return "create_tasks" in permissions
+
     role = getattr(user, "role", None)
-
     return role is not None and role.role_name.lower() in TASK_CREATOR_ROLES
 
 
@@ -90,10 +89,37 @@ def create_task(*, project_id, user, data):
             created_by=user.user_id,
         )
 
-    # Read back rather than assemble the response by hand: created_at and the
-    # lookup names are the database's answer, not this module's guess, and
-    # using API 07's query keeps the two response shapes identical.
-    return get_project_tasks(project_id=project_id, task_id=task_id)[0]
+    # Read back through API 07's data shape, then write one central history
+    # event without changing the endpoint response contract.
+    created = get_project_tasks(project_id=project_id, task_id=task_id)[0]
+
+    assignees = created.get("assignees") or []
+    assignee_name = None
+    if assignees:
+        first = assignees[0]
+        assignee_name = (
+            f"{first.get('first_name', '')} {first.get('last_name', '')}"
+        ).strip()
+
+    record_history(
+        organisation_id=project["project_organisation_id"],
+        user_id=user.user_id,
+        entity_type="Task",
+        entity_id=created["task_id"],
+        entity_name=created["title"],
+        action="Created",
+        new_value={
+            "project_id": project_id,
+            "status": created.get("status_name"),
+            "priority": created.get("priority_name"),
+            "task_type": created.get("task_type_name"),
+            "assignee": assignee_name,
+            "due_date": created.get("due_date"),
+        },
+        description=f'Created task "{created["title"]}".',
+    )
+
+    return created
 
 
 def _require_known_lookups(data):

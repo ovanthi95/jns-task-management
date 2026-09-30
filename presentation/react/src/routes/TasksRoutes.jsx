@@ -1,27 +1,17 @@
 import { lazy } from 'react';
 
-// project-imports
 import DashboardLayout from 'layout/Dashboard';
 import Loadable from 'components/Loadable';
 import RequireAuth from './RequireAuth';
+import RequirePermission from './RequirePermission';
 
-// render - task pages (API 06 and API 07)
 const TaskListPage = Loadable(lazy(() => import('views/tasks/TaskList')));
 const TaskCreatePage = Loadable(lazy(() => import('views/tasks/TaskCreate')));
-
-// ==============================|| TASK ROUTING ||============================== //
-//
-// The browser paths mirror the API paths, so /projects/1/tasks in the address
-// bar is the page for /api/projects/1/tasks. The project id is a route
-// parameter for the same reason it is a URL segment on the API: a task
-// belongs to exactly one project and the page cannot be asked for without it.
-//
-// The list page already renders the create form, so /tasks/new exists only
-// for linking straight to it.
-//
-// Both pages are wrapped in RequireAuth, which arrived on main with API 01.
-// Without a session the API answers 403, so sending the caller to /login is
-// a better answer than rendering a page that can only fail.
+const TaskDetailPage = Loadable(lazy(() => import('views/tasks/TaskDetail')));
+const TaskEditPage = Loadable(lazy(() => import('views/tasks/TaskEdit')));
+const TaskCommentsPage = Loadable(lazy(() => import('views/tasks/TaskComments')));
+const TaskAuditPage = Loadable(lazy(() => import('views/tasks/TaskAudit')));
+const TaskKanbanPage = Loadable(lazy(() => import('views/tasks/TaskKanban')));
 
 const TasksRoutes = {
   path: '/',
@@ -40,7 +30,31 @@ const TasksRoutes = {
         },
         {
           path: 'projects/:projectId/tasks/new',
-          element: <TaskCreatePage />
+          element: (
+            <RequirePermission permissions={['create_tasks']}>
+              <TaskCreatePage />
+            </RequirePermission>
+          )
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId',
+          element: <TaskDetailPage />
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId/edit',
+          element: <TaskEditPage />
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId/comments',
+          element: <TaskCommentsPage />
+        },
+        {
+          path: 'projects/:projectId/tasks/:taskId/audit',
+          element: <TaskAuditPage />
+        },
+        {
+          path: 'projects/:projectId/kanban',
+          element: <TaskKanbanPage />
         }
       ]
     }

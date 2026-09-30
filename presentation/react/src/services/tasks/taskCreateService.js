@@ -10,7 +10,7 @@
 // one would be a file nobody owns. When somebody adds it, this function and
 // its twin in taskListService.js collapse into it.
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 /**
  * The error the hooks catch.

@@ -1,6 +1,5 @@
-# API 10 - File upload
+# API 10 - Task file upload and read
 # Owner: Manatka
-# POST /api/tasks/:taskId/files
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -10,6 +9,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from data_access.tasks.get_task_access import get_task_access
+from data_access.tasks.get_task_files import get_task_files
 from tasks.services.file_upload_service import (
     FileUploadValidationError,
     StorageError,
@@ -24,6 +25,25 @@ class FileUploadView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request, task_id):
+        user = session_user(request)
+
+        if user is None:
+            return not_authenticated()
+
+        task = get_task_access(task_id, user["user_id"])
+
+        if task is None:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            get_task_files(task_id),
+            status=status.HTTP_200_OK,
+        )
 
     def post(self, request, task_id):
         user = session_user(request)

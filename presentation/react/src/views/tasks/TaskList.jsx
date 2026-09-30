@@ -150,11 +150,20 @@ export default function TaskList() {
           : 'Tasks'
       }
       secondary={
-        options?.can_create ? (
-          <Button as={Link} to={`/projects/${projectId}/tasks/new`}>
-            Add task
+        <div className="d-flex gap-2">
+          <Button
+            as={Link}
+            to={`/projects/${projectId}/kanban`}
+            variant="outline-primary"
+          >
+            Kanban
           </Button>
-        ) : null
+          {options?.can_create && (
+            <Button as={Link} to={`/projects/${projectId}/tasks/new`}>
+              Add task
+            </Button>
+          )}
+        </div>
       }
     >
       <div className="d-flex flex-wrap gap-3 align-items-center mb-3">
@@ -327,6 +336,13 @@ export default function TaskList() {
 
                 <td className="text-end">
                   <ButtonGroup size="sm">
+                    <Button
+                      as={Link}
+                      to={`/projects/${projectId}/tasks/${task.task_id}`}
+                      variant="outline-primary"
+                    >
+                      Open
+                    </Button>
                     <Button
                       as={Link}
                       to={`/tasks/${task.task_id}/files`}

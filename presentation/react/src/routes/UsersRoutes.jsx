@@ -20,14 +20,7 @@ const UsersRoutes = {
         </RequireAuth>
       ),
       children: [
-        {
-          path: '',
-          element: (
-            <RequirePermission permissions={['manage_users']}>
-              <UserList />
-            </RequirePermission>
-          )
-        },
+        { path: '', element: <UserList /> },
         {
           path: 'new',
           element: (

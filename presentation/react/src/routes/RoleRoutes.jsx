@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import DashboardLayout from 'layout/Dashboard';
 import Loadable from 'components/Loadable';
 import RequireAuth from './RequireAuth';
+import RequirePermission from './RequirePermission';
 
 const RoleManagement = Loadable(
   lazy(() => import('views/users/RoleManagement'))
@@ -21,7 +22,11 @@ const RoleRoutes = {
       children: [
         {
           path: 'roles',
-          element: <RoleManagement />
+          element: (
+            <RequirePermission permissions={['manage_roles']}>
+              <RoleManagement />
+            </RequirePermission>
+          )
         }
       ]
     }

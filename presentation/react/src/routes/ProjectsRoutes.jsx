@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import DashboardLayout from 'layout/Dashboard';
 import Loadable from 'components/Loadable';
 import RequireAuth from './RequireAuth';
+import RequirePermission from './RequirePermission';
 
 const ProjectList = Loadable(lazy(() => import('views/projects/ProjectList')));
 const ProjectCreate = Loadable(lazy(() => import('views/projects/ProjectCreate')));
@@ -25,11 +26,19 @@ const ProjectsRoutes = {
         },
         {
           path: 'projects/new',
-          element: <ProjectCreate />
+          element: (
+            <RequirePermission permissions={['create_projects']}>
+              <ProjectCreate />
+            </RequirePermission>
+          )
         },
         {
           path: 'projects/:projectId/edit',
-          element: <ProjectEdit />
+          element: (
+            <RequirePermission permissions={['edit_projects']}>
+              <ProjectEdit />
+            </RequirePermission>
+          )
         }
       ]
     }

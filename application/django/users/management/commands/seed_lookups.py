@@ -32,6 +32,7 @@ class Command(BaseCommand):
             ("Accounting", "Accounting-related work"),
             ("Taxation", "Tax-related work"),
             ("Funding Application", "Funding application work"),
+            ("Other", "Other task-related work"),
         ]
 
         for order, (type_name, description) in enumerate(task_types, start=1):

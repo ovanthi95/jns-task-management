@@ -21,7 +21,8 @@ from tasks.services.task_update_service import (
 class TaskUpdateSerializer(serializers.Serializer):
     """Only fields explicitly owned by API 08 may be patched."""
 
-    notify_assignee = serializers.BooleanField(required=False)\n    title = serializers.CharField(
+    notify_assignee = serializers.BooleanField(required=False)
+    title = serializers.CharField(
         max_length=200,
         trim_whitespace=True,
         required=False,

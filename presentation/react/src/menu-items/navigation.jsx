@@ -1,6 +1,6 @@
 const navigation = {
-  id: 'group-dashboard-loading-unique',
-  title: 'Navigation',
+  id: 'worklink-navigation',
+  title: 'Worklink',
   type: 'group',
   children: [
     {
@@ -8,7 +8,7 @@ const navigation = {
       title: 'Dashboard',
       type: 'item',
       icon: 'ph ph-house-line',
-      url: '/'
+      url: '/dashboard'
     }
   ]
 };

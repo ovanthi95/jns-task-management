@@ -1,17 +1,12 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 
-// project-imports
 import Loadable from 'components/Loadable';
 import AuthLayout from 'layout/Auth';
 
-// render - login pages
 const LoginPage = Loadable(lazy(() => import('views/auth/login/Login')));
-
-// render - register pages
-const RegisterPage = Loadable(lazy(() => import('views/auth/register/Register')));
-
-// ==============================|| AUTH PAGES ROUTING ||============================== //
+const ForgotPasswordPage = Loadable(lazy(() => import('views/auth/ForgotPassword')));
+const ResetPasswordPage = Loadable(lazy(() => import('views/auth/ResetPassword')));
 
 const PagesRoutes = {
   path: '/',
@@ -29,8 +24,12 @@ const PagesRoutes = {
           element: <LoginPage />
         },
         {
-          path: 'register',
-          element: <RegisterPage />
+          path: 'forgot-password',
+          element: <ForgotPasswordPage />
+        },
+        {
+          path: 'reset-password/:uid/:token',
+          element: <ResetPasswordPage />
         }
       ]
     }

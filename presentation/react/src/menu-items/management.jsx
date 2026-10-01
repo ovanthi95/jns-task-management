@@ -1,5 +1,5 @@
 const management = {
-  id: 'jns-management',
+  id: 'worklink-management',
   title: 'Management',
   type: 'group',
   children: [
@@ -9,6 +9,14 @@ const management = {
       type: 'item',
       icon: 'ph ph-folder-open',
       url: '/projects'
+    },
+    {
+      id: 'users',
+      title: 'Users',
+      type: 'item',
+      icon: 'ph ph-users',
+      url: '/users',
+      permissions: ['manage_users']
     },
     {
       id: 'roles-permissions',

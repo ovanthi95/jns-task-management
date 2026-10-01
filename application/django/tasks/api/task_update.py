@@ -7,7 +7,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from tasks.serializers import TaskSerializer
+from tasks.services.task_notification_service import send_task_update_email
 from tasks.services.exceptions import InvalidTaskInput
+from users.services.permission_service import actor_has_permission
 from tasks.services.task_update_service import (
     TaskNotVisible,
     TaskUpdateNotPermitted,
@@ -17,6 +19,8 @@ from tasks.services.task_update_service import (
 
 class TaskUpdateSerializer(serializers.Serializer):
     """Only fields explicitly owned by API 08 may be patched."""
+
+    notify_assignee = serializers.BooleanField(required=False)
 
     title = serializers.CharField(
         max_length=200,
@@ -55,7 +59,7 @@ class TaskUpdateSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
     def validate(self, attrs):
-        if not attrs:
+        if not (set(attrs) - {"notify_assignee"}):
             raise serializers.ValidationError(
                 "Provide at least one field to update."
             )
@@ -87,6 +91,10 @@ class TaskUpdateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
+        notify_assignee = bool(
+            serializer.validated_data.pop("notify_assignee", False)
+        )
+
         actor = {
             "user_id": request.user.user_id,
             "organisation_id": request.user.organisation_id,
@@ -95,6 +103,15 @@ class TaskUpdateView(APIView):
                 getattr(request.user, "permissions", []) or []
             ),
         }
+
+        if notify_assignee and not actor_has_permission(
+            actor,
+            "send_task_notifications",
+        ):
+            return Response(
+                {"detail": "Task notification permission required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         try:
             task = update_task_details(
@@ -120,10 +137,35 @@ class TaskUpdateView(APIView):
         except DatabaseError as error:
             return _database_error_response(error)
 
-        return Response(
-            TaskSerializer(task).data,
-            status=status.HTTP_200_OK,
-        )
+        response_data = dict(TaskSerializer(task).data)
+        response_data["email_requested"] = notify_assignee
+        response_data["email_sent"] = False
+
+        if notify_assignee:
+            changed_fields = task.pop("notification_changes", {})
+            if not changed_fields:
+                response_data["email_warning"] = (
+                    "The task was saved, but no task details changed, so no email was sent."
+                )
+            else:
+                try:
+                    response_data["email_sent"] = send_task_update_email(
+                        task=task,
+                        assigned_by_name=(
+                            f"{request.user.first_name} {request.user.last_name}"
+                        ).strip(),
+                        changes=changed_fields,
+                    )
+                    if not response_data["email_sent"]:
+                        response_data["email_warning"] = (
+                            "The task was saved, but no update email was sent to the assignee."
+                        )
+                except Exception:
+                    response_data["email_warning"] = (
+                        "The task was saved, but the update email could not be sent."
+                    )
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 def _database_error_response(error):

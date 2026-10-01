@@ -103,6 +103,16 @@ def update_task_details(*, actor, task_id, changes):
             changes=changes,
         )
 
+        updated["notification_changes"] = {
+            field: (
+                _history_value(current, field),
+                _history_value(updated, field),
+            )
+            for field in changes
+            if field in current
+            and _history_value(current, field) != _history_value(updated, field)
+        }
+
     return updated
 
 

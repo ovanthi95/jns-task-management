@@ -8,6 +8,9 @@ from rest_framework.views import APIView
 
 from tasks.serializers import TaskSerializer
 from tasks.services.exceptions import InvalidTaskInput
+from tasks.services.task_notification_service import send_task_update_email
+from users.services.permission_service import actor_has_permission
+from users.services.session_service import get_authenticated_session_user
 from tasks.services.task_update_service import (
     TaskNotVisible,
     TaskUpdateNotPermitted,
@@ -18,7 +21,7 @@ from tasks.services.task_update_service import (
 class TaskUpdateSerializer(serializers.Serializer):
     """Only fields explicitly owned by API 08 may be patched."""
 
-    title = serializers.CharField(
+    notify_assignee = serializers.BooleanField(required=False)\n    title = serializers.CharField(
         max_length=200,
         trim_whitespace=True,
         required=False,
@@ -100,7 +103,7 @@ class TaskUpdateView(APIView):
             task = update_task_details(
                 actor=actor,
                 task_id=task_id,
-                changes=dict(serializer.validated_data),
+                changes=changes,
             )
         except TaskNotVisible:
             return Response(

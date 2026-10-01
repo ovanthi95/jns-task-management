@@ -99,6 +99,9 @@ class TaskUpdateView(APIView):
             ),
         }
 
+        changes = dict(serializer.validated_data)
+        changes.pop("notify_assignee", None)
+
         try:
             task = update_task_details(
                 actor=actor,

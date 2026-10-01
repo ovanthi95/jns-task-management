@@ -23,14 +23,14 @@ export function useTaskEdit(projectId, taskId) {
   const [task, setTask] = useState(null);
   const [user, setUser] = useState(null);
   const [options, setOptions] = useState(null);
-  const [notifyAssignee, setNotifyAssignee] = useState(false);
-  const [notice, setNotice] = useState('');
   const [values, setValues] = useState(EMPTY);
   const [initialValues, setInitialValues] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const [notifyAssignee, setNotifyAssignee] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -40,10 +40,12 @@ export function useTaskEdit(projectId, taskId) {
 
       setLoading(true);
       setError('');
+      setNotice('');
 
       try {
-        const [tasks, sessionUser] = await Promise.all([
+        const [tasks, taskOptions, sessionUser] = await Promise.all([
           getTasks(projectId),
+          getTaskOptions(projectId),
           getSessionUser()
         ]);
 
@@ -61,6 +63,7 @@ export function useTaskEdit(projectId, taskId) {
         const loaded = toFormValues(found);
 
         setTask(found);
+        setOptions(taskOptions);
         setUser(sessionUser);
         setValues(loaded);
         setInitialValues(loaded);
@@ -80,16 +83,35 @@ export function useTaskEdit(projectId, taskId) {
 
   const permissions = useMemo(() => {
     const role = String(user?.role_name || '').toLowerCase();
+    const suppliedPermissions = user?.permissions;
+
+    const hasPermission = (code, fallback) => {
+      if (Array.isArray(suppliedPermissions)) {
+        return suppliedPermissions.includes(code);
+      }
+      return fallback;
+    };
+
     const currentUserId = Number(user?.user_id);
     const isAssignee = (task?.assignees || []).some(
       (person) => Number(person.user_id) === currentUserId
     );
 
     return {
-      canEditDetails: role === 'admin' || role === 'manager',
-      canReassign: role === 'admin',
-      canChangeAnyStatus: role === 'admin' || role === 'manager',
-      canCompleteAssigned: !['admin', 'manager'].includes(role) && isAssignee
+      canEditDetails: hasPermission(
+        'edit_tasks',
+        role === 'admin' || role === 'manager'
+      ),
+      canReassign: hasPermission('reassign_tasks', role === 'admin'),
+      canChangeAnyStatus: hasPermission(
+        'change_any_task_status',
+        role === 'admin' || role === 'manager'
+      ),
+      canCompleteAssigned: hasPermission(
+        'complete_assigned_tasks',
+        !['admin', 'manager'].includes(role) && isAssignee
+      ),
+      canNotify: hasPermission('send_task_notifications', role === 'admin')
     };
   }, [task, user]);
 
@@ -101,6 +123,7 @@ export function useTaskEdit(projectId, taskId) {
   const save = async () => {
     setSaving(true);
     setError('');
+    setNotice('');
     setFieldErrors({});
 
     try {
@@ -110,12 +133,21 @@ export function useTaskEdit(projectId, taskId) {
         return task;
       }
 
+      if (permissions.canNotify) {
+        changes.notify_assignee = notifyAssignee;
+      }
+
       const updated = await updateTask(taskId, changes);
       const loaded = toFormValues(updated);
 
       setTask(updated);
       setValues(loaded);
       setInitialValues(loaded);
+      setNotifyAssignee(false);
+
+      if (updated.email_warning) {
+        setNotice(updated.email_warning);
+      }
 
       return updated;
     } catch (requestError) {
@@ -130,12 +162,16 @@ export function useTaskEdit(projectId, taskId) {
   return {
     task,
     user,
+    options,
     values,
     loading,
     saving,
     error,
     fieldErrors,
     permissions,
+    notifyAssignee,
+    setNotifyAssignee,
+    notice,
     change,
     save
   };

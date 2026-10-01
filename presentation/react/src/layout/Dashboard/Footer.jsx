@@ -1,41 +1,17 @@
-// react-bootstrap
 import Col from 'react-bootstrap/Col';
-import Nav from 'react-bootstrap/Nav';
 import Row from 'react-bootstrap/Row';
-import Stack from 'react-bootstrap/Stack';
 
-// project-imports
-import branding from 'branding.json';
-
-// ==============================|| MAIN LAYOUT - FOOTER ||============================== //
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
     <footer className="pc-footer">
       <div className="footer-wrapper container-fluid">
-        <Row className="justify-content-center justify-content-md-between">
-          {/* Footer Text */}
+        <Row className="align-items-center justify-content-center text-center">
           <Col xs="auto" className="my-1">
-            <p className="m-0">
-              {branding.brandName} ♥ Crafted By Team{' '}
-              <a href="https://codedthemes.com/" target="_blank" rel="noopener noreferrer" className="text-primary">
-                CodedThemes
-              </a>
+            <p className="m-0 text-muted small">
+              © {year} JNS Business Solutions
             </p>
-          </Col>
-
-          {/* Footer Links */}
-          <Col xs="auto" className="my-1">
-            <Stack direction="horizontal" gap={3} className="justify-content-center">
-              <Nav.Link className="p-0" as="a" href="/">
-                Home
-              </Nav.Link>
-              <Nav.Link className="p-0" as="a" href="https://codedthemes.gitbook.io/datta" target="_blank" rel="noopener noreferrer">
-                Documentation
-              </Nav.Link>
-              <Nav.Link className="p-0" as="a" href="https://codedthemes.support-hub.io/" target="_blank" rel="noopener noreferrer">
-                Support
-              </Nav.Link>
-            </Stack>
           </Col>
         </Row>
       </div>

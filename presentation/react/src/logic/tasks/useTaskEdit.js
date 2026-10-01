@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { getSessionUser } from 'services/auth/sessionService';
-import { getTasks } from 'services/tasks/taskListService';
+import { getTaskOptions, getTasks } from 'services/tasks/taskListService';
 import { updateTask } from 'services/tasks/taskUpdateService';
 
 const EMPTY = {
@@ -22,6 +22,9 @@ const EMPTY = {
 export function useTaskEdit(projectId, taskId) {
   const [task, setTask] = useState(null);
   const [user, setUser] = useState(null);
+  const [options, setOptions] = useState(null);
+  const [notifyAssignee, setNotifyAssignee] = useState(false);
+  const [notice, setNotice] = useState('');
   const [values, setValues] = useState(EMPTY);
   const [initialValues, setInitialValues] = useState(EMPTY);
   const [loading, setLoading] = useState(true);

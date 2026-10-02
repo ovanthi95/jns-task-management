@@ -19,12 +19,16 @@ export default function TaskEdit() {
 
   const {
     task,
+    options,
     values,
     loading,
     saving,
     error,
     fieldErrors,
     permissions,
+    notifyAssignee,
+    setNotifyAssignee,
+    notice,
     change,
     save
   } = useTaskEdit(projectId, taskId);
@@ -34,9 +38,11 @@ export default function TaskEdit() {
 
     try {
       await save();
-      navigate(`/projects/${projectId}/tasks`);
+      if (!notice) {
+        navigate(`/projects/${projectId}/tasks`);
+      }
     } catch {
-      // The hook already exposes the API error to the form.
+      // The hook exposes the API error to the form.
     }
   };
 
@@ -48,7 +54,7 @@ export default function TaskEdit() {
     );
   }
 
-  if (!task) {
+  if (!task || !options) {
     return (
       <MainCard title="Edit task">
         <Alert variant="danger">{error || 'Task not found.'}</Alert>
@@ -62,6 +68,14 @@ export default function TaskEdit() {
     || permissions.canReassign
     || permissions.canChangeAnyStatus
     || permissions.canCompleteAssigned;
+
+  const activeUsers = options.users || [];
+  const currentAssignee = task.assignees?.[0];
+  const currentAssigneeIsActive = currentAssignee
+    ? activeUsers.some(
+        (item) => Number(item.user_id) === Number(currentAssignee.user_id)
+      )
+    : true;
 
   return (
     <MainCard title={`Edit task — ${task.title}`}>
@@ -80,6 +94,7 @@ export default function TaskEdit() {
         )}
 
       {error && <Alert variant="danger">{error}</Alert>}
+      {notice && <Alert variant="warning">{notice}</Alert>}
 
       <Form onSubmit={submit}>
         <Row className="g-3">
@@ -90,6 +105,8 @@ export default function TaskEdit() {
               onChange={(event) => change('title', event.target.value)}
               disabled={!permissions.canEditDetails}
               isInvalid={Boolean(fieldErrors.title)}
+              maxLength={200}
+              required
             />
             <Form.Control.Feedback type="invalid">
               {firstError(fieldErrors.title)}
@@ -97,10 +114,8 @@ export default function TaskEdit() {
           </Col>
 
           <Col md={4}>
-            <Form.Label>Status ID</Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
+            <Form.Label>Status</Form.Label>
+            <Form.Select
               value={values.status_id}
               onChange={(event) => change('status_id', event.target.value)}
               disabled={
@@ -108,7 +123,13 @@ export default function TaskEdit() {
                 && !permissions.canCompleteAssigned
               }
               isInvalid={Boolean(fieldErrors.status_id)}
-            />
+            >
+              {options.task_statuses.map((item) => (
+                <option key={item.status_id} value={item.status_id}>
+                  {item.status_name}
+                </option>
+              ))}
+            </Form.Select>
             <Form.Control.Feedback type="invalid">
               {firstError(fieldErrors.status_id)}
             </Form.Control.Feedback>
@@ -124,42 +145,77 @@ export default function TaskEdit() {
               disabled={!permissions.canEditDetails}
               isInvalid={Boolean(fieldErrors.description)}
             />
+            <Form.Control.Feedback type="invalid">
+              {firstError(fieldErrors.description)}
+            </Form.Control.Feedback>
           </Col>
 
           <Col md={4}>
-            <Form.Label>Task type ID</Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
+            <Form.Label>Task type</Form.Label>
+            <Form.Select
               value={values.task_type_id}
               onChange={(event) => change('task_type_id', event.target.value)}
               disabled={!permissions.canEditDetails}
               isInvalid={Boolean(fieldErrors.task_type_id)}
-            />
+              required
+            >
+              <option value="">Choose type</option>
+              {options.task_types.map((item) => (
+                <option key={item.task_type_id} value={item.task_type_id}>
+                  {item.type_name}
+                </option>
+              ))}
+            </Form.Select>
+            <Form.Control.Feedback type="invalid">
+              {firstError(fieldErrors.task_type_id)}
+            </Form.Control.Feedback>
           </Col>
 
           <Col md={4}>
-            <Form.Label>Priority ID</Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
+            <Form.Label>Priority</Form.Label>
+            <Form.Select
               value={values.priority_id}
               onChange={(event) => change('priority_id', event.target.value)}
               disabled={!permissions.canEditDetails}
               isInvalid={Boolean(fieldErrors.priority_id)}
-            />
+              required
+            >
+              <option value="">Choose priority</option>
+              {options.priorities.map((item) => (
+                <option key={item.priority_id} value={item.priority_id}>
+                  {item.priority_name}
+                </option>
+              ))}
+            </Form.Select>
+            <Form.Control.Feedback type="invalid">
+              {firstError(fieldErrors.priority_id)}
+            </Form.Control.Feedback>
           </Col>
 
           <Col md={4}>
-            <Form.Label>Assignee ID</Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
+            <Form.Label>Assignee</Form.Label>
+            <Form.Select
               value={values.assignee_id}
               onChange={(event) => change('assignee_id', event.target.value)}
               disabled={!permissions.canReassign}
               isInvalid={Boolean(fieldErrors.assignee_id)}
-            />
+              required
+            >
+              <option value="">Choose assignee</option>
+              {currentAssignee && !currentAssigneeIsActive && (
+                <option value={currentAssignee.user_id}>
+                  {currentAssignee.first_name} {currentAssignee.last_name} — Current assignee
+                </option>
+              )}
+              {activeUsers.map((item) => (
+                <option key={item.user_id} value={item.user_id}>
+                  {item.name}{item.role_name ? ` — ${item.role_name}` : ''}
+                </option>
+              ))}
+            </Form.Select>
+            <Form.Control.Feedback type="invalid">
+              {firstError(fieldErrors.assignee_id)}
+            </Form.Control.Feedback>
             <Form.Text>
               Reassignment is restricted to Admin in the JNS build.
             </Form.Text>
@@ -201,7 +257,26 @@ export default function TaskEdit() {
               disabled={!permissions.canEditDetails}
               isInvalid={Boolean(fieldErrors.estimated_hours)}
             />
+            <Form.Control.Feedback type="invalid">
+              {firstError(fieldErrors.estimated_hours)}
+            </Form.Control.Feedback>
           </Col>
+
+          {permissions.canNotify && (
+            <Col xs={12}>
+              <Form.Check
+                type="switch"
+                id="notify-assignee-update"
+                label="Email assignee about these changes"
+                checked={notifyAssignee}
+                onChange={(event) => setNotifyAssignee(event.target.checked)}
+                disabled={saving}
+              />
+              <Form.Text>
+                Sends the changes and updated task details to the selected assignee after saving.
+              </Form.Text>
+            </Col>
+          )}
 
           <Col xs={12}>
             <Button type="submit" disabled={saving || !mayChangeAnything}>

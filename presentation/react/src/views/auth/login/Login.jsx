@@ -1,6 +1,7 @@
 // #login implemented by Ovanthi- 25298714
 
 import Button from 'react-bootstrap/Button';
+import { Link } from 'react-router-dom';
 import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 
@@ -122,16 +123,10 @@ export default function LoginPage() {
                     </div>
                   )}
 
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <Form.Check
-                      type="checkbox"
-                      id="rememberMe"
-                      label="Remember me"
-                    />
-
-                    <span className="text-muted small">
-                      Secure staff access
-                    </span>
+                  <div className="d-flex justify-content-end align-items-center mb-4">
+                    <Link to="/forgot-password" className="small">
+                      Forgot password?
+                    </Link>
                   </div>
 
                   <Button

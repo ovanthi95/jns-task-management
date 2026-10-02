@@ -163,7 +163,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
-    "JNS Task Management <no-reply@jns.local>",
+    "Worklink <worklink@jnsbusiness.co.nz>",
 )
 
 

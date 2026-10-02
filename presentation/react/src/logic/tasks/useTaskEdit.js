@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { getSessionUser } from 'services/auth/sessionService';
-import { getTasks } from 'services/tasks/taskListService';
+import { getTaskOptions, getTasks } from 'services/tasks/taskListService';
 import { updateTask } from 'services/tasks/taskUpdateService';
 
 const EMPTY = {
@@ -22,12 +22,15 @@ const EMPTY = {
 export function useTaskEdit(projectId, taskId) {
   const [task, setTask] = useState(null);
   const [user, setUser] = useState(null);
+  const [options, setOptions] = useState(null);
   const [values, setValues] = useState(EMPTY);
   const [initialValues, setInitialValues] = useState(EMPTY);
+  const [notifyAssignee, setNotifyAssignee] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -39,8 +42,9 @@ export function useTaskEdit(projectId, taskId) {
       setError('');
 
       try {
-        const [tasks, sessionUser] = await Promise.all([
+        const [tasks, taskOptions, sessionUser] = await Promise.all([
           getTasks(projectId),
+          getTaskOptions(projectId),
           getSessionUser()
         ]);
 
@@ -58,6 +62,7 @@ export function useTaskEdit(projectId, taskId) {
         const loaded = toFormValues(found);
 
         setTask(found);
+        setOptions(taskOptions);
         setUser(sessionUser);
         setValues(loaded);
         setInitialValues(loaded);
@@ -76,29 +81,46 @@ export function useTaskEdit(projectId, taskId) {
   }, [projectId, taskId]);
 
   const permissions = useMemo(() => {
+    const supplied = options?.current_user?.permissions;
     const role = String(user?.role_name || '').toLowerCase();
     const currentUserId = Number(user?.user_id);
+
     const isAssignee = (task?.assignees || []).some(
       (person) => Number(person.user_id) === currentUserId
     );
 
+    const permissionSet = new Set(supplied || []);
+
     return {
-      canEditDetails: role === 'admin' || role === 'manager',
-      canReassign: role === 'admin',
-      canChangeAnyStatus: role === 'admin' || role === 'manager',
-      canCompleteAssigned: !['admin', 'manager'].includes(role) && isAssignee
+      canEditDetails:
+        permissionSet.has('edit_tasks')
+        || role === 'admin'
+        || role === 'manager',
+      canReassign:
+        permissionSet.has('reassign_tasks')
+        || role === 'admin',
+      canChangeAnyStatus:
+        permissionSet.has('change_any_task_status')
+        || role === 'admin'
+        || role === 'manager',
+      canCompleteAssigned:
+        permissionSet.has('complete_assigned_tasks')
+        || (!['admin', 'manager'].includes(role) && isAssignee),
+      canNotify: permissionSet.has('send_task_notifications') || role === 'admin'
     };
-  }, [task, user]);
+  }, [options, task, user]);
 
   const change = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
     setFieldErrors((current) => ({ ...current, [name]: undefined }));
+    setNotice('');
   };
 
   const save = async () => {
     setSaving(true);
     setError('');
     setFieldErrors({});
+    setNotice('');
 
     try {
       const changes = buildChanges(values, initialValues, permissions);
@@ -107,12 +129,21 @@ export function useTaskEdit(projectId, taskId) {
         return task;
       }
 
+      if (permissions.canNotify) {
+        changes.notify_assignee = notifyAssignee;
+      }
+
       const updated = await updateTask(taskId, changes);
       const loaded = toFormValues(updated);
 
       setTask(updated);
       setValues(loaded);
       setInitialValues(loaded);
+      setNotifyAssignee(false);
+
+      if (updated.email_warning) {
+        setNotice(updated.email_warning);
+      }
 
       return updated;
     } catch (requestError) {
@@ -127,12 +158,16 @@ export function useTaskEdit(projectId, taskId) {
   return {
     task,
     user,
+    options,
     values,
     loading,
     saving,
     error,
     fieldErrors,
     permissions,
+    notifyAssignee,
+    setNotifyAssignee,
+    notice,
     change,
     save
   };

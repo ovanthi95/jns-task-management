@@ -46,14 +46,31 @@ LOOKUP_FIELDS = (
 
 
 def user_may_create_task(user):
-    """Return whether the authenticated principal may create tasks."""
-    permissions = set(getattr(user, "permissions", []) or [])
+    """Return whether the caller may create tasks.
+
+    The rule lives here rather than in the endpoint so there is one definition
+    of it. create_task applies it again, which means the rule still holds if
+    this service is ever called from somewhere that has no HTTP layer in front
+    of it.
+
+    `user` is the session dict sp_get_session_user returned, so the role
+    arrives already denormalised as role_name and this needs no second query.
+    An explicit permission list on the session wins when one is present, so a
+    configured RBAC role is honoured; otherwise the seeded role names decide.
+    A missing session is not permitted rather than an error, so the endpoint
+    can ask the question before it knows whether anyone is logged in.
+    """
+    if not user:
+        return False
+
+    permissions = set(user.get("permissions") or [])
 
     if permissions:
         return "create_tasks" in permissions
 
-    role = getattr(user, "role", None)
-    return role is not None and role.role_name.lower() in TASK_CREATOR_ROLES
+    role_name = user.get("role_name")
+
+    return bool(role_name) and role_name.lower() in TASK_CREATOR_ROLES
 
 
 def create_task(*, project_id, user, data):
@@ -86,7 +103,7 @@ def create_task(*, project_id, user, data):
             due_date=data.get("due_date"),
             estimated_hours=data.get("estimated_hours"),
             assignee_user_id=data["assignee_id"],
-            created_by=user.user_id,
+            created_by=user["user_id"],
         )
 
     # Read back through API 07's data shape, then write one central history
@@ -103,7 +120,7 @@ def create_task(*, project_id, user, data):
 
     record_history(
         organisation_id=project["project_organisation_id"],
-        user_id=user.user_id,
+        user_id=user["user_id"],
         entity_type="Task",
         entity_id=created["task_id"],
         entity_name=created["title"],

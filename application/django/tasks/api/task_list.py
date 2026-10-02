@@ -19,30 +19,44 @@ Status codes this endpoint can answer with:
     404  the project does not exist, or this caller may not see that it does
 """
 
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..serializers import TaskSerializer
 from ..services import task_list_service
 from ..services.exceptions import ProjectNotVisible
+from ._session import not_authenticated, session_user
 
 FILTER_NAMES = ("status_id", "priority_id", "assignee_id")
 
 
 class TaskListView(APIView):
-    """API 07. Open to any member of the project, whatever their role."""
+    """API 07. Open to any member of the project, whatever their role.
 
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes is emptied and the caller is read out of the
+    session instead, which is the convention APIs 02, 03, 04, 05 and 10
+    already follow. tasks/api/_session.py explains why request.user cannot be
+    used here.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request, project_id):
+        user = session_user(request)
+
+        if user is None:
+            return not_authenticated()
+
         filters = _read_filters(request)
 
         try:
             tasks = task_list_service.list_project_tasks(
                 project_id=project_id,
-                user=request.user,
+                user=user,
                 **filters,
             )
         except ProjectNotVisible:

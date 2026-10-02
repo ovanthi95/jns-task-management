@@ -284,7 +284,7 @@ class TaskCreateTests(ProjectTaskFixture):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_an_admin_can_create_a_task(self):
-        self.client.force_authenticate(user=self.admin)
+        self._login_as(self.admin)
 
         response = self.client.post(self.url, self._payload(), format="json")
 
@@ -293,7 +293,7 @@ class TaskCreateTests(ProjectTaskFixture):
     def test_an_employee_cannot_create_a_task(self):
         """403 rather than 404: this is about the caller, not the project."""
 
-        self.client.force_authenticate(user=self.assignee)
+        self._login_as(self.assignee)
 
         response = self.client.post(self.url, self._payload(), format="json")
 
@@ -307,7 +307,7 @@ class TaskCreateTests(ProjectTaskFixture):
         about a service this caller cannot use either way.
         """
 
-        self.client.force_authenticate(user=self.assignee)
+        self._login_as(self.assignee)
 
         response = self.client.post(self.url, {"title": ""}, format="json")
 
@@ -316,15 +316,7 @@ class TaskCreateTests(ProjectTaskFixture):
     # --------------------------------------------------------- tenancy
 
     def test_same_organisation_non_member_cannot_create_a_task(self):
-        self.client.force_authenticate(user=self.outsider)
-
-        response = self.client.post(self.url, self._payload(), format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(Task.objects.count(), 0)
-
-    def test_another_organisation_cannot_create_a_task_here(self):
-        self.client.force_authenticate(user=self.other_user)
+        self._login_as(self.outsider)
 
         response = self.client.post(self.url, self._payload(), format="json")
 

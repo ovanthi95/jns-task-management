@@ -20,7 +20,7 @@
 
 DROP PROCEDURE IF EXISTS sp_check_task_lookups;
 
-DELIMITER $
+DELIMITER $$
 
 CREATE PROCEDURE sp_check_task_lookups (
     IN p_task_type_id INT,
@@ -41,6 +41,6 @@ BEGIN
             SELECT 1 FROM priorities
             WHERE priority_id = p_priority_id
         ) AS priority_exists;
-END$
+END $$
 
 DELIMITER ;

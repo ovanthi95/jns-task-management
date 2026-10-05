@@ -236,6 +236,13 @@ class ProjectCreateApiTests(TransactionTestCase):
     # ------------------------------------------------------------ members
 
     def test_members_are_written_in_the_same_call(self):
+        """The requested members and the creator are written together.
+
+        sp_create_project inserts the creator unconditionally so that
+        nobody can create a project they are then unable to open. The
+        expected set is therefore the requested members plus the caller.
+        """
+
         self._login_as(self.manager)
 
         response = self._post(
@@ -253,8 +260,30 @@ class ProjectCreateApiTests(TransactionTestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(
-            member_ids, {self.employee.user_id, self.colleague.user_id}
+            member_ids,
+            {
+                self.manager.user_id,
+                self.employee.user_id,
+                self.colleague.user_id,
+            },
         )
+
+    def test_the_creator_is_a_member_even_when_none_are_requested(self):
+        """A project created with no member list still has its creator."""
+
+        self._login_as(self.manager)
+
+        response = self._post(self._body())
+
+        project = Project.objects.get()
+        member_ids = list(
+            ProjectMember.objects.filter(project=project).values_list(
+                "user_id", flat=True
+            )
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(member_ids, [self.manager.user_id])
 
     def test_a_member_from_another_organisation_is_refused(self):
         self._login_as(self.manager)
@@ -296,7 +325,15 @@ class ProjectCreateApiTests(TransactionTestCase):
         self.assertEqual(Project.objects.count(), 0)
         self.assertEqual(ProjectMember.objects.count(), 0)
 
-    def test_the_same_member_twice_is_refused(self):
+    def test_the_same_member_twice_is_recorded_once(self):
+        """A repeated member id is idempotent rather than an error.
+
+        The service layer de-duplicates the list before the call and the
+        procedure inserts with INSERT IGNORE against the unique
+        constraint on (project, user), so a duplicate is absorbed at two
+        separate layers instead of being refused.
+        """
+
         self._login_as(self.manager)
 
         response = self._post(
@@ -305,8 +342,16 @@ class ProjectCreateApiTests(TransactionTestCase):
             )
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(Project.objects.count(), 0)
+        project = Project.objects.get()
+        employee_rows = ProjectMember.objects.filter(
+            project=project, user_id=self.employee.user_id
+        ).count()
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(employee_rows, 1)
+        self.assertEqual(
+            ProjectMember.objects.filter(project=project).count(), 2
+        )
 
     # --------------------------------------------------------- validation
 

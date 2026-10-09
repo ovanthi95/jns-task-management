@@ -18,6 +18,15 @@ BEGIN
         END) AS active_tasks,
         COUNT(DISTINCT CASE
             WHEN p.status = 'Active'
+            THEN t.task_id
+        END) AS assigned_tasks,
+        COUNT(DISTINCT CASE
+            WHEN p.status = 'Active'
+             AND ts.status_name = 'Completed'
+            THEN t.task_id
+        END) AS completed_tasks,
+        COUNT(DISTINCT CASE
+            WHEN p.status = 'Active'
              AND ts.status_name <> 'Completed'
              AND t.due_date IS NOT NULL
              AND t.due_date < CURDATE()

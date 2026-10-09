@@ -8,7 +8,8 @@ const resolvePath = (str) => path.resolve(__dirname, str);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const API_URL = env.VITE_APP_BASE_NAME?.trim() || "/";
+  const API_BASE_URL = env.VITE_API_BASE_URL?.trim() || "/api";
+  const BASE_NAME = env.VITE_APP_BASE_NAME?.trim() || "/";
   const PORT = 3000;
 
   return {
@@ -82,7 +83,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    base: API_URL,
+    base: BASE_NAME,
     plugins: [react(), jsconfigPaths()],
   };
 });

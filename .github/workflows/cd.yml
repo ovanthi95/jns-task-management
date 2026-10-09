@@ -41,6 +41,9 @@ jobs:
 
       - name: Build React application
         working-directory: presentation/react
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_APP_BASE_NAME: /
         run: npm run build
 
       - name: Diagnose SSH

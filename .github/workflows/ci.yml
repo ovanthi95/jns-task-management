@@ -45,13 +45,14 @@ jobs:
 
       - name: Run Django tests
         env:
+          DB_ENGINE: mysql
           DB_NAME: jns_task_management_test
           DB_USER: root
           DB_PASSWORD: root
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DEBUG: "True"
-          SECRET_KEY: ci-test-secret-key
+          DJANGO_SECRET_KEY: ci-test-secret-key
           ALLOWED_HOSTS: localhost,127.0.0.1
         run: python manage.py test
 

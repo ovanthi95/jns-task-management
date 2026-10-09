@@ -254,7 +254,7 @@ export default function TaskList() {
                         .join(', ')
                     : 'Unassigned'}
                 </td>
-                <td>{task.task_type_name}</td>
+                <td>{task.task_type_name === 'Other' && task.other_task_type ? task.other_task_type : task.task_type_name}</td>
                 <td>{task.priority_name}</td>
                 <td>
                   <Badge bg={statusVariant(task.status_name)}>

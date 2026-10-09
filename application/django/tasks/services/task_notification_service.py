@@ -126,7 +126,7 @@ def send_task_update_email(*, task_id, updated_by_id, changes):
         f"Project: {task.project.project_name}\n"
         f"Task: {task.title}\n"
         f"Description: {description}\n"
-        f"Task type: {task.task_type.type_name}\n"
+        f"Task type: {task.other_task_type or task.task_type.type_name}\n"
         f"Priority: {task.priority.priority_name}\n"
         f"Status: {task.status.status_name}\n"
         f"Start date: {task.start_date or 'Not specified'}\n"

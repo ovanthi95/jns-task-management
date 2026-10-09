@@ -104,6 +104,12 @@ class Task(models.Model):
         related_name="tasks"
     )
 
+    other_task_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
+
     status = models.ForeignKey(
         TaskStatus,
         on_delete=models.PROTECT,

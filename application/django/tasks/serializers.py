@@ -55,6 +55,7 @@ class TaskSerializer(serializers.Serializer):
 
     task_type_id = serializers.IntegerField(read_only=True)
     task_type_name = serializers.CharField(read_only=True)
+    other_task_type = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
 
     status_id = serializers.IntegerField(read_only=True)
     status_name = serializers.CharField(read_only=True)
@@ -110,6 +111,12 @@ class TaskCreateSerializer(serializers.Serializer):
     """
 
     task_type_id = serializers.IntegerField()
+    other_task_type = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
     status_id = serializers.IntegerField()
     priority_id = serializers.IntegerField()
     assignee_id = serializers.IntegerField()

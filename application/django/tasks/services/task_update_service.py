@@ -36,6 +36,7 @@ DETAIL_FIELDS = {
     "title",
     "description",
     "task_type_id",
+    "other_task_type",
     "priority_id",
     "start_date",
     "due_date",
@@ -109,6 +110,8 @@ def update_task_details(*, actor, task_id, changes):
 def _history_value(task, field_name):
     if field_name == "task_type_id":
         return task.get("task_type_name")
+    if field_name == "other_task_type":
+        return task.get("other_task_type")
     if field_name == "priority_id":
         return task.get("priority_name")
     if field_name == "status_id":
@@ -127,6 +130,7 @@ def _history_value(task, field_name):
 def _history_field_name(field_name):
     return {
         "task_type_id": "task_type",
+        "other_task_type": "other_task_type",
         "priority_id": "priority",
         "status_id": "status",
         "assignee_id": "assignee",

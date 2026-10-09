@@ -23,6 +23,8 @@ CREATE PROCEDURE sp_update_task(
 
     IN p_task_type_supplied TINYINT,
     IN p_task_type_id INT,
+    IN p_other_task_type_supplied TINYINT,
+    IN p_other_task_type VARCHAR(100),
 
     IN p_priority_supplied TINYINT,
     IN p_priority_id INT,
@@ -51,6 +53,8 @@ BEGIN
     DECLARE v_old_task_type_id INT;
     DECLARE v_old_task_type_name VARCHAR(50);
     DECLARE v_new_task_type_name VARCHAR(50);
+    DECLARE v_old_other_task_type VARCHAR(100);
+    DECLARE v_new_other_task_type VARCHAR(100);
 
     DECLARE v_old_priority_id INT;
     DECLARE v_old_priority_name VARCHAR(30);
@@ -77,6 +81,7 @@ BEGIN
         t.description,
         t.task_type_id,
         tt.type_name,
+        t.other_task_type,
         t.priority_id,
         pr.priority_name,
         t.start_date,
@@ -90,6 +95,7 @@ BEGIN
         v_old_description,
         v_old_task_type_id,
         v_old_task_type_name,
+        v_old_other_task_type,
         v_old_priority_id,
         v_old_priority_name,
         v_old_start_date,
@@ -146,6 +152,25 @@ BEGIN
             SIGNAL SQLSTATE '45000'
                 SET MESSAGE_TEXT = 'Invalid task type';
         END IF;
+    ELSE
+        SET v_new_task_type_name = v_old_task_type_name;
+    END IF;
+
+    SET v_new_other_task_type = v_old_other_task_type;
+
+    IF LOWER(v_new_task_type_name) = 'other' THEN
+        IF p_other_task_type_supplied = 1 THEN
+            IF p_other_task_type IS NULL OR TRIM(p_other_task_type) = '' THEN
+                SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'Other task type is required';
+            END IF;
+            SET v_new_other_task_type = TRIM(p_other_task_type);
+        ELSEIF v_old_other_task_type IS NULL OR TRIM(v_old_other_task_type) = '' THEN
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Other task type is required';
+        END IF;
+    ELSE
+        SET v_new_other_task_type = NULL;
     END IF;
 
     IF p_priority_supplied = 1 THEN
@@ -233,6 +258,7 @@ BEGIN
             p_task_type_id,
             task_type_id
         ),
+        other_task_type = v_new_other_task_type,
         priority_id = IF(
             p_priority_supplied = 1,
             p_priority_id,
@@ -339,6 +365,20 @@ BEGIN
                 'task_type_id', p_task_type_id,
                 'task_type_name', v_new_task_type_name
             ),
+            NOW()
+        );
+    END IF;
+
+    IF NOT (v_old_other_task_type <=> v_new_other_task_type) THEN
+        INSERT INTO task_history (
+            task_id, changed_by, field_name, old_value, new_value, changed_at
+        )
+        VALUES (
+            p_task_id,
+            p_changed_by,
+            'other_task_type',
+            JSON_OBJECT('value', v_old_other_task_type),
+            JSON_OBJECT('value', v_new_other_task_type),
             NOW()
         );
     END IF;

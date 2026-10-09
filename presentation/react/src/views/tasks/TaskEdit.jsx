@@ -171,6 +171,28 @@ export default function TaskEdit() {
             </Form.Control.Feedback>
           </Col>
 
+          {options.task_types?.some(
+            (item) =>
+              String(item.task_type_id) === String(values.task_type_id)
+              && item.type_name === 'Other'
+          ) && (
+            <Col md={4}>
+              <Form.Label>Specify task type</Form.Label>
+              <Form.Control
+                value={values.other_task_type}
+                onChange={(event) => change('other_task_type', event.target.value)}
+                disabled={!permissions.canEditDetails}
+                isInvalid={Boolean(fieldErrors.other_task_type)}
+                maxLength={100}
+                required
+                placeholder="e.g. Website maintenance"
+              />
+              <Form.Control.Feedback type="invalid">
+                {firstError(fieldErrors.other_task_type)}
+              </Form.Control.Feedback>
+            </Col>
+          )}
+
           <Col md={4}>
             <Form.Label>Priority</Form.Label>
             <Form.Select

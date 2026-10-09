@@ -43,31 +43,58 @@ jobs:
         working-directory: presentation/react
         run: npm run build
 
-      - name: Set up SSH
+      - name: Diagnose SSH
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
+          echo "Checking EC2_HOST..."
+          echo "Host length: ${#EC2_HOST}"
+
+          echo "Checking SSH key..."
+          echo "Key length: ${#EC2_SSH_KEY}"
+
+          echo "Creating SSH directory..."
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
-          echo "$EC2_SSH_KEY" > "$HOME/.ssh/ec2_deploy_key"
+
+          echo "Writing SSH key..."
+          printf '%s\n' "$EC2_SSH_KEY" > "$HOME/.ssh/ec2_deploy_key"
           chmod 600 "$HOME/.ssh/ec2_deploy_key"
-          ssh-keyscan -H "$EC2_HOST" >> "$HOME/.ssh/known_hosts"
-          chmod 644 "$HOME/.ssh/known_hosts"
+
+          echo "Checking SSH key format..."
+          ssh-keygen -y -f "$HOME/.ssh/ec2_deploy_key" > /dev/null
+          echo "SSH key format OK."
+
+          echo "Testing port 22..."
+          timeout 10 bash -c "</dev/tcp/$EC2_HOST/22"
+          echo "Port 22 is reachable."
+
+          echo "Testing ssh-keyscan..."
+          ssh-keyscan -T 10 -H "$EC2_HOST" >> "$HOME/.ssh/known_hosts"
+
+          echo "SSH connectivity diagnosis passed."
 
       - name: Deploy Django application
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
         run: |
-          rsync -az -e "ssh -i $HOME/.ssh/ec2_deploy_key" --exclude ".env" application/django/ "${EC2_USER}@${EC2_HOST}:/home/ec2-user/jns-task-management/application/django/"
+          rsync -az \
+            -e "ssh -i $HOME/.ssh/ec2_deploy_key" \
+            --exclude ".env" \
+            application/django/ \
+            "${EC2_USER}@${EC2_HOST}:/home/ec2-user/jns-task-management/application/django/"
 
       - name: Deploy React application
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
         run: |
-          rsync -az --delete -e "ssh -i $HOME/.ssh/ec2_deploy_key" presentation/react/dist/ "${EC2_USER}@${EC2_HOST}:/var/www/jns-task-management/"
+          rsync -az --delete \
+            -e "ssh -i $HOME/.ssh/ec2_deploy_key" \
+            presentation/react/dist/ \
+            "${EC2_USER}@${EC2_HOST}:/var/www/jns-task-management/"
 
       - name: Install dependencies and restart Django
         env:
@@ -76,12 +103,19 @@ jobs:
         run: |
           ssh -i "$HOME/.ssh/ec2_deploy_key" "${EC2_USER}@${EC2_HOST}" << 'REMOTE'
             set -e
+
             cd /home/ec2-user/jns-task-management/application/django
+
             source /home/ec2-user/jns-venv/bin/activate
+
             pip install -r requirements.txt
+
             python manage.py check
+
             sudo systemctl restart jns-django
+
             sudo systemctl is-active --quiet jns-django
+
             echo "Django service is active and deployment checks passed."
             echo "Deployment completed successfully."
           REMOTE

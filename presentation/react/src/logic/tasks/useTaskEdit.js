@@ -11,6 +11,7 @@ const EMPTY = {
   title: '',
   description: '',
   task_type_id: '',
+  other_task_type: '',
   priority_id: '',
   assignee_id: '',
   start_date: '',
@@ -180,6 +181,7 @@ function toFormValues(task) {
     title: task.title || '',
     description: task.description || '',
     task_type_id: String(task.task_type_id || ''),
+    other_task_type: task.other_task_type || '',
     priority_id: String(task.priority_id || ''),
     assignee_id: assignee ? String(assignee.user_id) : '',
     start_date: task.start_date || '',
@@ -199,6 +201,7 @@ function buildChanges(values, initial, permissions) {
     copyText(changes, values, initial, 'title');
     copyText(changes, values, initial, 'description');
     copyNumber(changes, values, initial, 'task_type_id');
+    copyText(changes, values, initial, 'other_task_type');
     copyNumber(changes, values, initial, 'priority_id');
     copyNullableText(changes, values, initial, 'start_date');
     copyNullableText(changes, values, initial, 'due_date');

@@ -227,7 +227,7 @@ export default function TaskDetail() {
                   .join(', ')
               : 'Unassigned'}
           </p>
-          <p><strong>Task type:</strong> {task.task_type_name}</p>
+          <p><strong>Task type:</strong> {task.task_type_name === 'Other' && task.other_task_type ? task.other_task_type : task.task_type_name}</p>
           <p><strong>Priority:</strong> {task.priority_name}</p>
         </div>
         <div className="col-md-6">

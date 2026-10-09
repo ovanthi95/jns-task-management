@@ -14,6 +14,7 @@ def create_task(
     *,
     project_id,
     task_type_id,
+    other_task_type,
     status_id,
     priority_id,
     title,
@@ -39,6 +40,7 @@ def create_task(
         [
             project_id,
             task_type_id,
+            other_task_type,
             status_id,
             priority_id,
             title,

@@ -33,6 +33,12 @@ class TaskUpdateSerializer(serializers.Serializer):
         allow_null=True,
     )
     task_type_id = serializers.IntegerField(min_value=1, required=False)
+    other_task_type = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
     priority_id = serializers.IntegerField(min_value=1, required=False)
     assignee_id = serializers.IntegerField(min_value=1, required=False)
     start_date = serializers.DateField(required=False, allow_null=True)

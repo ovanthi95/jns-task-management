@@ -45,6 +45,7 @@ BEGIN
         t.project_id             AS project_id,
         t.task_type_id           AS task_type_id,
         tt.type_name             AS task_type_name,
+        t.other_task_type        AS other_task_type,
         t.status_id              AS status_id,
         ts.status_name           AS status_name,
         t.priority_id            AS priority_id,

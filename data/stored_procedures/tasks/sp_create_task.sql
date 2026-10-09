@@ -30,6 +30,7 @@ DELIMITER $
 CREATE PROCEDURE sp_create_task (
     IN p_project_id        INT,
     IN p_task_type_id      INT,
+    IN p_other_task_type    VARCHAR(100),
     IN p_status_id         INT,
     IN p_priority_id       INT,
     IN p_title             VARCHAR(200),
@@ -43,12 +44,32 @@ CREATE PROCEDURE sp_create_task (
 BEGIN
     DECLARE v_task_id INT;
     DECLARE v_now DATETIME(6);
+    DECLARE v_task_type_name VARCHAR(50);
 
     SET v_now = UTC_TIMESTAMP(6);
+
+    SELECT type_name
+    INTO v_task_type_name
+    FROM task_types
+    WHERE task_type_id = p_task_type_id
+      AND is_active = 1
+    LIMIT 1;
+
+    IF v_task_type_name IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Invalid task type';
+    END IF;
+
+    IF LOWER(v_task_type_name) = 'other'
+       AND (p_other_task_type IS NULL OR TRIM(p_other_task_type) = '') THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Other task type is required';
+    END IF;
 
     INSERT INTO tasks (
         project_id,
         task_type_id,
+        other_task_type,
         status_id,
         priority_id,
         title,
@@ -63,6 +84,7 @@ BEGIN
     ) VALUES (
         p_project_id,
         p_task_type_id,
+        CASE WHEN LOWER(v_task_type_name) = 'other' THEN NULLIF(TRIM(p_other_task_type), '') ELSE NULL END,
         p_status_id,
         p_priority_id,
         p_title,

@@ -15,6 +15,7 @@ const empty = {
   title: '',
   description: '',
   task_type_id: '',
+  other_task_type: '',
   priority_id: '',
   assignee_id: '',
   start_date: '',
@@ -53,9 +54,14 @@ export default function TaskCreate() {
   }, [projectId]);
 
   const change = (event) => {
+    const { name, value } = event.target;
+
     setValues((current) => ({
       ...current,
-      [event.target.name]: event.target.value
+      [name]: value,
+      ...(name === 'task_type_id' && !isOtherTaskType(options, value)
+        ? { other_task_type: '' }
+        : {})
     }));
   };
 
@@ -85,6 +91,13 @@ export default function TaskCreate() {
       return;
     }
 
+    const isOther = isOtherTaskType(options, values.task_type_id);
+
+    if (isOther && !values.other_task_type.trim()) {
+      setError('Please specify the task type when Other is selected.');
+      return;
+    }
+
     setBusy(true);
     setError('');
 
@@ -93,6 +106,7 @@ export default function TaskCreate() {
         title: values.title,
         description: values.description || null,
         task_type_id: Number(values.task_type_id),
+        other_task_type: isOther ? values.other_task_type.trim() : null,
         status_id: Number(newStatus.status_id),
         priority_id: Number(values.priority_id),
         assignee_id: Number(values.assignee_id),
@@ -182,6 +196,20 @@ export default function TaskCreate() {
             </Form.Select>
           </Form.Group>
 
+          {isOtherTaskType(options, values.task_type_id) && (
+            <Form.Group className="col-md-4 mb-3">
+              <Form.Label>Specify task type</Form.Label>
+              <Form.Control
+                name="other_task_type"
+                value={values.other_task_type}
+                onChange={change}
+                maxLength={100}
+                required
+                placeholder="e.g. Website maintenance"
+              />
+            </Form.Group>
+          )}
+
           <Form.Group className="col-md-4 mb-3">
             <Form.Label>Priority</Form.Label>
             <Form.Select name="priority_id" value={values.priority_id} onChange={change} required>
@@ -260,5 +288,13 @@ export default function TaskCreate() {
         </Link>
       </Form>
     </MainCard>
+  );
+}
+
+function isOtherTaskType(options, taskTypeId) {
+  return options?.task_types?.some(
+    (item) =>
+      String(item.task_type_id) === String(taskTypeId)
+      && item.type_name === 'Other'
   );
 }

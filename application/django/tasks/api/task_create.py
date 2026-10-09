@@ -5,6 +5,7 @@ lookup validation, assignment rules and the stored-procedure write. This HTTP
 layer adds only the optional post-create email notification.
 """
 
+from django.db import DatabaseError
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -72,6 +73,13 @@ class TaskCreateView(APIView):
                 error.errors,
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except DatabaseError as error:
+            if "other task type is required" in str(error).lower():
+                return Response(
+                    {"other_task_type": ["Please specify the task type when Other is selected."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
 
         response_data = dict(TaskSerializer(task).data)
         response_data["email_requested"] = notify_assignee

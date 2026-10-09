@@ -30,6 +30,8 @@ def update_task(
             changes.get("description"),
             int("task_type_id" in changes),
             changes.get("task_type_id"),
+            int("other_task_type" in changes),
+            changes.get("other_task_type"),
             int("priority_id" in changes),
             changes.get("priority_id"),
             int("assignee_id" in changes),

@@ -78,6 +78,7 @@ def create_task(*, project_id, user, data):
         task_id = create_task_row(
             project_id=project_id,
             task_type_id=data["task_type_id"],
+            other_task_type=data.get("other_task_type"),
             status_id=data["status_id"],
             priority_id=data["priority_id"],
             title=data["title"],

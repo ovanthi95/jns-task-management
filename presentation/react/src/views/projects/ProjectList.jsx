@@ -174,8 +174,7 @@ export default function ProjectList() {
                 <th>Project</th>
                 <th>Dates</th>
                 <th>Task progress</th>
-                <th style={{ minWidth: 220 }}>Status</th>
-                <th />
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -188,6 +187,7 @@ export default function ProjectList() {
                     >
                       {project.project_name}
                     </Link>
+                    <div className="d-flex align-items-center gap-2 flex-wrap"><Button as={Link} to={"/projects/" + project.project_id + "/tasks"} size="sm" variant="outline-secondary">Tasks</Button>{canEdit && <Button as={Link} to={"/projects/" + project.project_id + "/edit"} size="sm" variant="outline-primary">Edit project</Button>}</div>
                     {project.description && (
                       <div>
                         <small className="text-muted">{project.description}</small>
@@ -219,27 +219,7 @@ export default function ProjectList() {
                       </Badge>
                     )}
                   </td>
-                  <td className="text-end">
-                    <Button
-                      as={Link}
-                      to={`/projects/${project.project_id}/tasks`}
-                      size="sm"
-                      variant="outline-secondary"
-                      className="me-2"
-                    >
-                      Tasks
-                    </Button>
-                    {canEdit && (
-                      <Button
-                        as={Link}
-                        to={`/projects/${project.project_id}/edit`}
-                        size="sm"
-                        variant="outline-primary"
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </td>
+
                 </tr>
               ))}
             </tbody>

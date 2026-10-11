@@ -18,49 +18,27 @@ from tasks.services.file_upload_service import (
 from users.services.session_service import get_authenticated_session_user
 
 
+def get_session_user(request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return None
+
+    session_user = get_authenticated_session_user(user_id)
+    if session_user is None:
+        request.session.flush()
+        return None
+
+    return session_user
+
+
 class FileUploadView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
-    def _session_user(self, request):
-        user_id = request.session.get("user_id")
-        if not user_id:
-            return None
-
-        session_user = get_authenticated_session_user(user_id)
-        if session_user is None:
-            request.session.flush()
-            return None
-
-        return session_user
-
-    def get(self, request, task_id):
-        session_user = self._session_user(request)
-        if session_user is None:
-            return Response(
-                {"detail": "Not authenticated."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        task = get_task_access(task_id, session_user["user_id"])
-        if task is None:
-            return Response(
-                {"detail": "Not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        files = get_task_files(task_id)
-        return Response(
-            [
-                {key: value for key, value in file.items() if key != "s3_key"}
-                for file in files
-            ],
-            status=status.HTTP_200_OK,
-        )
 
     def post(self, request, task_id):
-        session_user = self._session_user(request)
+        session_user = get_session_user(request)
         if session_user is None:
             return Response(
                 {"detail": "Not authenticated."},
@@ -107,7 +85,7 @@ class FileDownloadView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, task_id, attachment_id):
-        session_user = FileUploadView()._session_user(request)
+        session_user = get_session_user(request)
 
         if session_user is None:
             return Response(

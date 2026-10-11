@@ -353,7 +353,7 @@ class TaskUpdateApiTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_assigned_employee_cannot_edit_task_details(self):
         self._login_as(self.worker)

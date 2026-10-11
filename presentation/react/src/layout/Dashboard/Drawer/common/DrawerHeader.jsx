@@ -1,3 +1,4 @@
+
 import { Link } from 'react-router-dom';
 
 // project-import
@@ -16,33 +17,16 @@ export const DrawerHeader = () => {
           style={{
             width: 35,
             height: 35,
-            borderRadius: 10,
-            background: 'linear-gradient(135deg, #1DE9B6, #1DC4E9)',
             flexShrink: 0
           }}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M17 5L10.5 11.5L7 8L2 13"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M13 5H17V9"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <img
+            src="/favicon.svg"
+            alt=""
+            width="35"
+            height="35"
+            style={{ display: 'block', objectFit: 'contain' }}
+          />
         </span>
         <span
           className="text-white fw-semibold"

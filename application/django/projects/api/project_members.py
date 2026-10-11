@@ -10,6 +10,7 @@ from projects.services.project_members_service import (
     ProjectMembersPermissionError,
     list_project_members,
 )
+from users.services.session_service import get_authenticated_session_user
 
 
 class ProjectMembersView(APIView):
@@ -17,8 +18,6 @@ class ProjectMembersView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, project_id):
-        from users.services.session_service import get_authenticated_session_user
-
         actor = get_authenticated_session_user(request.session.get("user_id"))
 
         if actor is None:

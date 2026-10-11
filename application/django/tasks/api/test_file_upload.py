@@ -40,6 +40,9 @@ class RecordingS3Client:
     def delete_object(self, Bucket, Key):
         self.deletes.append(Key)
 
+    def generate_presigned_url(self, ClientMethod, Params, ExpiresIn):
+        return f"https://download.test/{Params['Key']}?expires={ExpiresIn}"
+
 
 def pdf(name="report.pdf", size=1024):
     return SimpleUploadedFile(name, b"%PDF-1.4 " + b"x" * size, content_type="application/pdf")
@@ -52,6 +55,8 @@ class FileUploadApiTests(TestCase):
             "users/sp_get_session_user",
             "tasks/sp_get_task_access",
             "tasks/sp_add_file",
+            "tasks/sp_get_task_access",
+            "tasks/sp_get_task_files",
         )
         super().setUpClass()
 
@@ -211,3 +216,54 @@ class FileUploadApiTests(TestCase):
 
         self.assertEqual(len(fake.puts), 1)
         self.assertEqual(fake.deletes, [fake.puts[0]["Key"]])
+
+    def test_member_can_prepare_attachment_download(self):
+        self._login_as(self.member)
+        attachment = Attachment.objects.create(
+            task=self.task,
+            uploaded_by=self.member,
+            file_name="Q3 report.pdf",
+            file_type="application/pdf",
+            file_size=2048,
+            s3_key=f"tasks/{self.task.task_id}/report.pdf",
+        )
+
+        with patch(
+            "tasks.services.file_upload_service.get_bucket_name",
+            return_value="test-bucket",
+        ), patch(
+            "tasks.services.file_upload_service.get_s3_client",
+            return_value=RecordingS3Client(),
+        ):
+            response = self.client.get(
+                f"/api/tasks/{self.task.task_id}/files/{attachment.attachment_id}/download"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["file_name"], "Q3 report.pdf")
+        self.assertIn("download.test", response.data["download_url"])
+
+    def test_non_member_cannot_prepare_attachment_download(self):
+        attachment = Attachment.objects.create(
+            task=self.task,
+            uploaded_by=self.member,
+            file_name="Q3 report.pdf",
+            file_type="application/pdf",
+            file_size=2048,
+            s3_key=f"tasks/{self.task.task_id}/report.pdf",
+        )
+        self._login_as(self.outsider)
+
+        with patch(
+            "tasks.services.file_upload_service.get_bucket_name",
+            return_value="test-bucket",
+        ), patch(
+            "tasks.services.file_upload_service.get_s3_client",
+            return_value=RecordingS3Client(),
+        ) as fake:
+            response = self.client.get(
+                f"/api/tasks/{self.task.task_id}/files/{attachment.attachment_id}/download"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        fake.assert_not_called()

@@ -1,100 +1,84 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
-
-// react-bootstrap
+import { useEffect, useCallback, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Breadcrumb from 'react-bootstrap/Breadcrumb';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
-
-// project-imports
 import { APP_DEFAULT_PATH } from 'config';
 import navigation from 'menu-items';
 
-// ==============================|| MAIN BREADCRUMB ||============================== //
+function projectBreadcrumbTitle(pathname) {
+  if (pathname === '/projects') return 'Projects';
+  if (pathname === '/projects/new') return 'New project';
+  if (/^\/projects\/[^/]+\/edit$/.test(pathname)) return 'Edit project';
+  if (/^\/projects\/[^/]+\/tasks$/.test(pathname)) return 'Tasks';
+  if (/^\/projects\/[^/]+\/tasks\/new$/.test(pathname)) return 'New task';
+  if (/^\/projects\/[^/]+\/tasks\/[^/]+$/.test(pathname)) return 'Task';
+  if (/^\/projects\/[^/]+\/tasks\/[^/]+\/edit$/.test(pathname)) return 'Edit task';
+  if (/^\/projects\/[^/]+\/tasks\/[^/]+\/comments$/.test(pathname)) return 'Comments';
+  if (/^\/projects\/[^/]+\/tasks\/[^/]+\/audit$/.test(pathname)) return 'Task audit';
+  if (/^\/projects\/[^/]+\/kanban$/.test(pathname)) return 'Kanban';
+  return null;
+}
+
+function findBreadcrumbMenuItem(items, pathname) {
+  for (const item of items || []) {
+    if (item.type === 'group' && item.children) {
+      const child = item.children.find(
+        (candidate) =>
+          candidate.type === 'item' &&
+          (pathname === candidate.url || pathname.startsWith(`${candidate.url}/`))
+      );
+      if (child) return { group: item, child };
+    }
+  }
+  return null;
+}
 
 export default function Breadcrumbs() {
   const location = useLocation();
+  const [crumb, setCrumb] = useState(null);
 
-  const [main, setMain] = useState({});
-  const [item, setItem] = useState({});
+  const resolve = useCallback(() => {
+    const found = findBreadcrumbMenuItem(navigation.items, location.pathname);
+    if (!found) {
+      setCrumb(null);
+      return;
+    }
 
-  const getCollapse = useCallback(
-    (item) => {
-      if (item.children) {
-        item.children.forEach((collapse) => {
-          if (collapse.type === 'collapse') {
-            getCollapse(collapse);
-          } else if (collapse.type === 'item' && location.pathname === collapse.url) {
-            setMain((prev) => ({
-              ...prev,
-              type: 'collapse', // Add this
-              title: typeof item.title === 'string' ? item.title : undefined
-            }));
-            setItem((prev) => ({
-              ...prev,
-              type: 'item', // Add this
-              title: typeof collapse.title === 'string' ? collapse.title : undefined,
-              breadcrumbs: collapse.breadcrumbs !== false
-            }));
-          }
-        });
-      }
-    },
-    [location.pathname]
-  );
+    setCrumb({
+      groupTitle: typeof found.group.title === 'string' ? found.group.title : '',
+      groupUrl: found.group.children?.find((item) => item.type === 'item')?.url || APP_DEFAULT_PATH,
+      title: projectBreadcrumbTitle(location.pathname) || found.child.title || '',
+      breadcrumbs: found.child.breadcrumbs !== false
+    });
+  }, [location.pathname]);
 
   useEffect(() => {
-    navigation.items.forEach((navItem) => {
-      if (navItem.type === 'group') {
-        getCollapse(navItem);
-      }
-    });
-  }, [location.pathname, getCollapse]);
+    resolve();
+  }, [resolve]);
 
-  let mainContent;
-  let itemContent;
-  let breadcrumbContent;
-  let title = '';
+  if (!crumb || !crumb.breadcrumbs) return null;
 
-  if (main?.type === 'collapse') {
-    mainContent = (
-      <Breadcrumb.Item href="#" className="text-capitalize">
-        {main.title}
-      </Breadcrumb.Item>
-    );
-  }
-
-  if (item?.type === 'item') {
-    title = item.title ?? '';
-    itemContent = (
-      <Breadcrumb.Item href="#" className="text-capitalize">
-        {title}
-      </Breadcrumb.Item>
-    );
-
-    if (item.breadcrumbs !== false) {
-      breadcrumbContent = (
-        <div className="page-header">
-          <div className="page-block">
-            <Row className="align-items-center">
-              <Col md={12} className="page-header-title text-capitalize">
-                <h5>{title}</h5>
-              </Col>
-              <Col md={12}>
-                <Breadcrumb listProps={{ style: { marginBottom: 0 } }}>
-                  <Breadcrumb.Item href={APP_DEFAULT_PATH}>Home</Breadcrumb.Item>
-                  {mainContent}
-                  {itemContent}
-                </Breadcrumb>
-              </Col>
-            </Row>
-          </div>
-        </div>
-      );
-    } else {
-      breadcrumbContent = null;
-    }
-  }
-
-  return <>{breadcrumbContent}</>;
+  return (
+    <div className="page-header">
+      <div className="page-block">
+        <Row className="align-items-center">
+          <Col md={12} className="page-header-title text-capitalize">
+            <h5>{crumb.title}</h5>
+          </Col>
+          <Col md={12}>
+            <Breadcrumb listProps={{ style: { marginBottom: 0 } }}>
+              <Breadcrumb.Item linkAs={Link} linkProps={{ to: APP_DEFAULT_PATH }}>
+                Home
+              </Breadcrumb.Item>
+              <Breadcrumb.Item linkAs={Link} linkProps={{ to: crumb.groupUrl }}>
+                {crumb.groupTitle}
+              </Breadcrumb.Item>
+              <Breadcrumb.Item active>{crumb.title}</Breadcrumb.Item>
+            </Breadcrumb>
+          </Col>
+        </Row>
+      </div>
+    </div>
+  );
 }

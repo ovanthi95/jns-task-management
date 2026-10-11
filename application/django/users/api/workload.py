@@ -62,6 +62,11 @@ class UserWorkloadTasksView(APIView):
                 actor=actor,
                 user_id=user_id,
             )
+            if rows is None:
+                return Response(
+                    {"detail": "You do not have permission to view this user workload."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         except DatabaseError as exc:
             if "user not found" in str(exc).lower():
                 return Response(

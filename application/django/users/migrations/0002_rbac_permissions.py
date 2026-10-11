@@ -13,7 +13,7 @@ PERMISSIONS = [
     ("edit_tasks", "Edit task details", "Edit task title, dates, priority, type and estimates.", "Tasks", 30),
     ("reassign_tasks", "Reassign tasks", "Change the assignee of an existing task.", "Tasks", 40),
     ("change_any_task_status", "Change any task status", "Move any accessible task between workflow statuses.", "Tasks", 50),
-    ("complete_assigned_tasks", "Complete assigned tasks", "Mark personally assigned tasks as Completed.", "Tasks", 60),
+    ("complete_assigned_tasks", "Change assigned task status", "Change the workflow status of tasks assigned to the current user.", "Tasks", 60),
     ("send_task_notifications", "Send task assignment emails", "Email an assignee when a task is created.", "Tasks", 70),
     ("view_history", "View organisation history", "View the central Project, Task and User history.", "Reporting", 10),
     ("view_workload", "View workload", "View staff workload summaries and user workload details.", "Reporting", 20),

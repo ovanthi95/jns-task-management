@@ -318,11 +318,37 @@ class TaskUpdateApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status_name"], "Completed")
 
-    def test_assigned_employee_cannot_move_task_to_other_status(self):
+    def test_assigned_employee_can_change_own_task_to_any_status(self):
         self._login_as(self.worker)
 
         response = self.client.patch(
             self.url,
+            {"status_id": self.progress_status.pk},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status_name"], "In Progress")
+
+    def test_assigned_employee_cannot_change_another_users_task_status(self):
+        other_task = Task.objects.create(
+            project=self.project,
+            task_type=self.task_type,
+            status=self.new_status,
+            priority=self.high_priority,
+            title="Other user's task",
+            created_by=self.manager,
+        )
+        TaskAssignee.objects.create(
+            task=other_task,
+            user=self.observer,
+            assigned_by=self.manager,
+        )
+
+        self._login_as(self.worker)
+
+        response = self.client.patch(
+            f"/api/tasks/{other_task.task_id}",
             {"status_id": self.progress_status.pk},
             format="json",
         )

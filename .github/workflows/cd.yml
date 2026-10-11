@@ -99,6 +99,15 @@ jobs:
             data/stored_procedures/projects/ \
             "${EC2_USER}@${EC2_HOST}:/home/ec2-user/jns-task-management/data/stored_procedures/projects/"
 
+      - name: Deploy task stored procedures
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          rsync -az \
+            -e "ssh -i $HOME/.ssh/ec2_deploy_key" \
+            data/stored_procedures/tasks/ \
+            "${EC2_USER}@${EC2_HOST}:/home/ec2-user/jns-task-management/data/stored_procedures/tasks/"
       - name: Deploy React application
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -127,7 +136,8 @@ jobs:
 
             python manage.py install_project_procedures \
               data/stored_procedures/projects/sp_get_project_members.sql \
-              data/stored_procedures/projects/sp_update_project_members.sql
+              data/stored_procedures/projects/sp_update_project_members.sql \
+              data/stored_procedures/tasks/sp_get_task_files.sql
 
             python manage.py check
 

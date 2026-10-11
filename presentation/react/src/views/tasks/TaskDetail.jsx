@@ -7,7 +7,7 @@ import Form from 'react-bootstrap/Form';
 
 import MainCard from 'components/MainCard';
 import { getComments, createComment } from 'services/tasks/commentService';
-import { getFiles, uploadFile } from 'services/tasks/fileService';
+import { getDownloadUrl, getFiles, uploadFile } from 'services/tasks/fileService';
 import { getTaskOptions, getTasks } from 'services/tasks/taskListService';
 import { updateTaskStatus } from 'services/tasks/taskUpdateService';
 
@@ -89,7 +89,7 @@ export default function TaskDetail() {
   const canEdit = permissions.includes('edit_tasks');
   const canReassign = permissions.includes('reassign_tasks');
   const canChangeStatus = permissions.includes('change_any_task_status');
-  const canCompleteAssigned = permissions.includes('complete_assigned_tasks');
+  const canChangeAssignedStatus = permissions.includes('complete_assigned_tasks');
 
   const isAssignee = useMemo(
     () =>
@@ -100,9 +100,21 @@ export default function TaskDetail() {
     [task, options]
   );
 
-  const completedStatus = options?.task_statuses?.find(
-    (item) => item.status_name === 'Completed'
-  );
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const downloadFile = async (file) => {
+    setDownloadingId(file.attachment_id);
+    setError('');
+
+    try {
+      const result = await getDownloadUrl(taskId, file.attachment_id);
+      window.open(result.download_url, '_blank', 'noopener,noreferrer');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const changeStatus = async (statusId) => {
     setBusyStatus(true);
@@ -180,7 +192,7 @@ export default function TaskDetail() {
     return <MainCard title="Task">{error || 'Task not found.'}</MainCard>;
   }
 
-  const canInteract = canViewAll || isAssignee;
+  const canInteract = true;
   const canEditTask = canEdit || canReassign;
 
   return (
@@ -240,7 +252,7 @@ export default function TaskDetail() {
       <hr />
       <h5>Status</h5>
 
-      {canChangeStatus ? (
+      {canChangeStatus || (isAssignee && canChangeAssignedStatus) ? (
         <Form.Select
           className="mb-4"
           style={{ maxWidth: 320 }}
@@ -254,30 +266,7 @@ export default function TaskDetail() {
             </option>
           ))}
         </Form.Select>
-      ) : isAssignee && canCompleteAssigned ? (
-        <div className="mb-4">
-          {task.status_name === 'Completed' ? (
-            <span className="text-muted">
-              You have marked this task Completed.
-            </span>
-          ) : (
-            <Button
-              onClick={() =>
-                completedStatus
-                  ? changeStatus(completedStatus.status_id)
-                  : setError('Completed status is not configured.')
-              }
-              disabled={busyStatus}
-            >
-              {busyStatus ? 'Updating...' : 'Mark as Completed'}
-            </Button>
-          )}
-          <div>
-            <small className="text-muted">
-              Assignees can only change their task to Completed.
-            </small>
-          </div>
-        </div>
+
       ) : (
         <p className="text-muted">
           Your role does not allow task status changes.
@@ -343,6 +332,15 @@ export default function TaskDetail() {
                   {file.uploaded_by_name
                     ? ` — uploaded by ${file.uploaded_by_name}`
                     : ''}
+                  <Button
+                    size="sm"
+                    variant="link"
+                    className="p-0 ms-2 align-baseline"
+                    disabled={downloadingId === file.attachment_id}
+                    onClick={() => downloadFile(file)}
+                  >
+                    {downloadingId === file.attachment_id ? 'Preparing...' : 'Download'}
+                  </Button>
                 </li>
               ))}
             </ul>

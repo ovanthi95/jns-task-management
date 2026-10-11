@@ -12,6 +12,7 @@ BEGIN
         a.file_name,
         a.file_type,
         a.file_size,
+        a.s3_key,
         a.uploaded_by,
         CONCAT_WS(' ', u.first_name, u.last_name) AS uploaded_by_name,
         a.uploaded_at

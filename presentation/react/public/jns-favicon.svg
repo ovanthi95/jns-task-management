@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f5f7f9"/><stop offset=".5" stop-color="#b8bec5"/><stop offset="1" stop-color="#6f7882"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd95a"/><stop offset=".5" stop-color="#f2a900"/><stop offset="1" stop-color="#c87800"/></linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#67d0c3"/><stop offset=".5" stop-color="#159c87"/><stop offset="1" stop-color="#006b59"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3aaeff"/><stop offset=".5" stop-color="#087edc"/><stop offset="1" stop-color="#06458f"/></linearGradient>
+  </defs>
+  <rect x="5" y="39" width="11" height="20" rx="1.5" fill="url(#silver)"/>
+  <rect x="19" y="28" width="11" height="31" rx="1.5" fill="url(#gold)"/>
+  <rect x="33" y="17" width="11" height="42" rx="1.5" fill="url(#green)"/>
+  <rect x="47" y="5" width="11" height="54" rx="1.5" fill="url(#blue)"/>
+</svg>

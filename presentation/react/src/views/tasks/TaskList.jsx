@@ -235,14 +235,13 @@ export default function TaskList() {
               <th>Priority</th>
               <th>Status</th>
               <th>Due date</th>
-              <th />
             </tr>
           </thead>
           <tbody>
             {visibleTasks.map((task) => (
               <tr key={task.task_id}>
                 <td>
-                  <div className="fw-semibold">{task.title}</div>
+                  <div className="fw-semibold d-flex align-items-center gap-2 flex-wrap"><span>{task.title}</span>{canOpenTask(task) && (<Button as={Link} to={"/projects/" + projectId + "/tasks/" + task.task_id} size="sm" variant="outline-primary">Open</Button>)}</div>
                   {task.description && (
                     <small className="text-muted">{task.description}</small>
                   )}
@@ -262,18 +261,7 @@ export default function TaskList() {
                   </Badge>
                 </td>
                 <td>{task.due_date || '—'}</td>
-                <td className="text-end">
-                  {canOpenTask(task) && (
-                    <Button
-                      as={Link}
-                      to={`/projects/${projectId}/tasks/${task.task_id}`}
-                      size="sm"
-                      variant="outline-primary"
-                    >
-                      Open
-                    </Button>
-                  )}
-                </td>
+
               </tr>
             ))}
           </tbody>

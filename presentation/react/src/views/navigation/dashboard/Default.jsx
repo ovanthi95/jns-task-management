@@ -5,6 +5,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Table from 'react-bootstrap/Table';
 
 import MainCard from 'components/MainCard';
+import { getSessionUser } from 'services/auth/sessionService';
 import { getProjects } from 'services/projects/projectListService';
 import { getWorkload } from 'services/workload/workloadService';
 
@@ -25,24 +26,46 @@ function completionPercent(completed, total) {
 export default function DefaultPage() {
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
+  const [canViewWorkload, setCanViewWorkload] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
 
-    Promise.all([getProjects(), getWorkload()])
-      .then(([projectRows, workload]) => {
+    const loadDashboard = async () => {
+      try {
+        const [sessionUser, projectRows] = await Promise.all([
+          getSessionUser(),
+          getProjects()
+        ]);
+
         if (!active) return;
+
         setProjects(projectRows || []);
+
+        const hasWorkloadPermission = Boolean(
+          sessionUser?.permissions?.includes('view_workload')
+        );
+
+        setCanViewWorkload(hasWorkloadPermission);
+
+        if (!hasWorkloadPermission) {
+          return;
+        }
+
+        const workload = await getWorkload();
+
+        if (!active) return;
         setUsers(workload?.users || []);
-      })
-      .catch((requestError) => {
+      } catch (requestError) {
         if (active) setError(requestError.message);
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+
+    loadDashboard();
 
     return () => {
       active = false;
@@ -98,33 +121,37 @@ export default function DefaultPage() {
                 </div>
               </div>
 
-              <div className="col-sm-6 col-xl-3">
-                <div className="border rounded p-3 h-100">
-                  <div className="text-muted small">Active users</div>
-                  <div className="fs-3 fw-semibold">{users.length}</div>
-                </div>
-              </div>
+              {canViewWorkload && (
+                <>
+                  <div className="col-sm-6 col-xl-3">
+                    <div className="border rounded p-3 h-100">
+                      <div className="text-muted small">Active users</div>
+                      <div className="fs-3 fw-semibold">{users.length}</div>
+                    </div>
+                  </div>
 
-              <div className="col-sm-6 col-xl-3">
-                <div className="border rounded p-3 h-100">
-                  <div className="text-muted small">Open assigned tasks</div>
-                  <div className="fs-3 fw-semibold">{totals.open}</div>
-                </div>
-              </div>
+                  <div className="col-sm-6 col-xl-3">
+                    <div className="border rounded p-3 h-100">
+                      <div className="text-muted small">Open assigned tasks</div>
+                      <div className="fs-3 fw-semibold">{totals.open}</div>
+                    </div>
+                  </div>
 
-              <div className="col-sm-6 col-xl-3">
-                <div className="border rounded p-3 h-100">
-                  <div className="text-muted small">Completed tasks</div>
-                  <div className="fs-3 fw-semibold">{totals.completed}</div>
-                  <small className="text-muted">
-                    {totals.completed} of {totals.assigned} assigned
-                  </small>
-                </div>
-              </div>
+                  <div className="col-sm-6 col-xl-3">
+                    <div className="border rounded p-3 h-100">
+                      <div className="text-muted small">Completed tasks</div>
+                      <div className="fs-3 fw-semibold">{totals.completed}</div>
+                      <small className="text-muted">
+                        {totals.completed} of {totals.assigned} assigned
+                      </small>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="row g-4">
-              <div className="col-xl-7">
+              <div className={canViewWorkload ? 'col-xl-7' : 'col-12'}>
                 <MainCard title="Ongoing projects" className="h-100">
                   {activeProjects.length === 0 ? (
                     <p className="text-muted mb-0">No ongoing projects.</p>
@@ -182,59 +209,61 @@ export default function DefaultPage() {
                 </MainCard>
               </div>
 
-              <div className="col-xl-5">
-                <MainCard title="Team task progress" className="h-100">
-                  {users.length === 0 ? (
-                    <p className="text-muted mb-0">No active users found.</p>
-                  ) : (
-                    <Table responsive hover className="mb-0">
-                      <thead>
-                        <tr>
-                          <th>User</th>
-                          <th>Completed</th>
-                          <th>Progress</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map((user) => {
-                          const assigned = Number(user.assigned_tasks || 0);
-                          const completed = Number(user.completed_tasks || 0);
-                          const percent = completionPercent(completed, assigned);
+              {canViewWorkload && (
+                <div className="col-xl-5">
+                  <MainCard title="Team task progress" className="h-100">
+                    {users.length === 0 ? (
+                      <p className="text-muted mb-0">No active users found.</p>
+                    ) : (
+                      <Table responsive hover className="mb-0">
+                        <thead>
+                          <tr>
+                            <th>User</th>
+                            <th>Completed</th>
+                            <th>Progress</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((user) => {
+                            const assigned = Number(user.assigned_tasks || 0);
+                            const completed = Number(user.completed_tasks || 0);
+                            const percent = completionPercent(completed, assigned);
 
-                          return (
-                            <tr key={user.user_id}>
-                              <td>
-                                <div className="fw-semibold">
-                                  {user.first_name} {user.last_name}
-                                </div>
-                                <small className="text-muted">
-                                  {user.role_name}
-                                </small>
-                              </td>
-                              <td>
-                                {completed} / {assigned}
-                              </td>
-                              <td style={{ minWidth: 110 }}>
-                                <div className="small mb-1">{percent}%</div>
-                                <div className="progress" style={{ height: 5 }}>
-                                  <div
-                                    className="progress-bar"
-                                    role="progressbar"
-                                    style={{ width: `${percent}%` }}
-                                    aria-valuenow={percent}
-                                    aria-valuemin="0"
-                                    aria-valuemax="100"
-                                  />
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </Table>
-                  )}
-                </MainCard>
-              </div>
+                            return (
+                              <tr key={user.user_id}>
+                                <td>
+                                  <div className="fw-semibold">
+                                    {user.first_name} {user.last_name}
+                                  </div>
+                                  <small className="text-muted">
+                                    {user.role_name}
+                                  </small>
+                                </td>
+                                <td>
+                                  {completed} / {assigned}
+                                </td>
+                                <td style={{ minWidth: 110 }}>
+                                  <div className="small mb-1">{percent}%</div>
+                                  <div className="progress" style={{ height: 5 }}>
+                                    <div
+                                      className="progress-bar"
+                                      role="progressbar"
+                                      style={{ width: `${percent}%` }}
+                                      aria-valuenow={percent}
+                                      aria-valuemin="0"
+                                      aria-valuemax="100"
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </Table>
+                    )}
+                  </MainCard>
+                </div>
+              )}
             </div>
           </>
         )}

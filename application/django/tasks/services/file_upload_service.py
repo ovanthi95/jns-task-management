@@ -71,18 +71,21 @@ def get_bucket_name():
 
 
 def get_s3_client():
-    """Real boto3 client when a bucket is configured, otherwise the local fake.
-
-    On EC2 boto3 picks up the instance IAM role by itself; no keys are read
-    from .env. Tests patch this function.
-    """
+    """Return the configured S3 client, using the EC2 IAM role in production."""
 
     if not get_bucket_name():
         return LocalFakeS3Client()
 
-    import boto3  # lazy: not installed locally, required on EC2
+    import boto3
+    from botocore.config import Config
 
-    return boto3.client("s3")
+    region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+
+    return boto3.client(
+        "s3",
+        region_name=region,
+        config=Config(signature_version="s3v4"),
+    )
 
 
 # -- validation --------------------------------------------------------------
@@ -152,3 +155,28 @@ def upload_task_file(session_user, task_id, uploaded_file):
         except Exception:
             pass
         raise
+
+def generate_download_url(attachment):
+    """Generate a short-lived URL for an attachment the caller can already access."""
+    bucket = get_bucket_name()
+
+    if not bucket:
+        raise StorageError("File storage is not configured.")
+
+    client = get_s3_client()
+    file_name = str(attachment.get("file_name") or "download").replace('"', "")
+    file_type = attachment.get("file_type") or "application/octet-stream"
+
+    try:
+        return client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": attachment["s3_key"],
+                "ResponseContentType": file_type,
+                "ResponseContentDisposition": f'attachment; filename="{file_name}"',
+            },
+            ExpiresIn=300,
+        )
+    except Exception as exc:
+        raise StorageError("Unable to prepare the file download.") from exc

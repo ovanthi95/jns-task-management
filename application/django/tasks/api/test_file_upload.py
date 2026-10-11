@@ -229,6 +229,9 @@ class FileUploadApiTests(TestCase):
         )
 
         with patch(
+            "tasks.services.file_upload_service.get_bucket_name",
+            return_value="test-bucket",
+        ), patch(
             "tasks.services.file_upload_service.get_s3_client",
             return_value=RecordingS3Client(),
         ):
@@ -252,6 +255,9 @@ class FileUploadApiTests(TestCase):
         self._login_as(self.outsider)
 
         with patch(
+            "tasks.services.file_upload_service.get_bucket_name",
+            return_value="test-bucket",
+        ), patch(
             "tasks.services.file_upload_service.get_s3_client",
             return_value=RecordingS3Client(),
         ) as fake:

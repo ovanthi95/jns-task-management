@@ -31,16 +31,13 @@ class ProjectMembersViewTests(TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.data["detail"], "Not authenticated.")
 
-    @patch("projects.api.project_members.actor_has_permission")
     @patch("projects.api.project_members.get_authenticated_session_user")
     def test_get_without_permission_returns_403(
         self,
         mock_get_user,
-        mock_permission,
     ):
         self._login()
         mock_get_user.return_value = self.actor
-        mock_permission.return_value = False
 
         response = self.client.get(self.url)
 

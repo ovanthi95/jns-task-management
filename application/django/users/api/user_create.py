@@ -47,6 +47,15 @@ class UserCreateView(APIView):
             return Response({"detail": "Not authenticated."},
                             status=status.HTTP_401_UNAUTHORIZED)
 
+        # Authorisation must be decided before request-body validation so that
+        # unauthorised callers receive 403 rather than learning the request
+        # schema through a 400 response.
+        if "manage_users" not in (session_user.get("permissions") or []):
+            return Response(
+                {"detail": "You do not have permission to create users."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = UserCreateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

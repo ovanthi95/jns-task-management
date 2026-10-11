@@ -37,6 +37,30 @@ class FileUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
 
+    def get(self, request, task_id):
+        session_user = get_session_user(request)
+        if session_user is None:
+            return Response(
+                {"detail": "Not authenticated."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        task = get_task_access(task_id, session_user["user_id"])
+        if task is None:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        files = get_task_files(task_id)
+        return Response(
+            [
+                {key: value for key, value in file.items() if key != "s3_key"}
+                for file in files
+            ],
+            status=status.HTTP_200_OK,
+        )
+
     def post(self, request, task_id):
         session_user = get_session_user(request)
         if session_user is None:

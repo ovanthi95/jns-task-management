@@ -88,7 +88,7 @@ export default function Header() {
                 aria-haspopup="true"
                 aria-expanded="false"
               >
-                <img src="/favicon.svg" alt="JNS Business Solutions" width="30" height="30" style={{ display: "block", objectFit: "contain" }} />
+                <i className="ph ph-user-circle" />
               </Dropdown.Toggle>
 
               <Dropdown.Menu className="dropdown-user-profile pc-h-dropdown p-0 overflow-hidden">

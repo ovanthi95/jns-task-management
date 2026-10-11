@@ -267,3 +267,18 @@ class FileUploadApiTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         fake.assert_not_called()
+
+
+    def test_s3_client_uses_bucket_region(self):
+        with patch.dict(os.environ, {
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        }, clear=False), patch(
+            "boto3.client"
+        ) as boto_client:
+            file_upload_service.get_s3_client()
+            boto_client.assert_called_once()
+            self.assertEqual(
+                boto_client.call_args.kwargs["region_name"],
+                "us-west-2",
+            )

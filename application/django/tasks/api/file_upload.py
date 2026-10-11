@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from data_access.tasks.get_task_access import get_task_access
-from data_access.tasks.get_task_files import get_task_files
+from data_access.tasks.get_task_files import get_task_file, get_task_files
 from tasks.services.file_upload_service import (
     FileUploadValidationError,
     StorageError,
@@ -49,8 +49,12 @@ class FileUploadView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        files = get_task_files(task_id)
         return Response(
-            get_task_files(task_id),
+            [
+                {key: value for key, value in file.items() if key != "s3_key"}
+                for file in files
+            ],
             status=status.HTTP_200_OK,
         )
 

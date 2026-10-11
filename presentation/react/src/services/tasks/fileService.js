@@ -48,3 +48,24 @@ export async function uploadFile(taskId, file) {
 
   return data;
 }
+
+
+export async function getDownloadUrl(taskId, attachmentId) {
+  const response = await fetch(
+    `${API_BASE_URL}/tasks/${taskId}/files/${attachmentId}/download`,
+    {
+      method: 'GET',
+      credentials: 'include'
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(data.detail || 'Unable to prepare the download.');
+    error.status = response.status;
+    throw error;
+  }
+
+  return data;
+}

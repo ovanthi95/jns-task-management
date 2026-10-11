@@ -3,8 +3,8 @@
 Rules used by the JNS group build:
 - Admin: may edit task details, change any status, and reassign.
 - Manager: may edit task details and change any status, but may not reassign.
-- Employee / Intern / Volunteer: may only mark a task assigned to themselves
-  as Completed.
+- Employee / Intern / Volunteer: may change the status of tasks assigned to
+  themselves when granted the assigned-task-status permission.
 
 The database write itself is performed by sp_update_task. Reads use the
 existing task data-access functions so this service stays on the same
@@ -208,12 +208,9 @@ def _authorise(*, actor, current, changes, target_status):
         if "complete_assigned_tasks" not in permissions:
             raise TaskUpdateNotPermitted()
 
-        if (
-            target_status is None
-            or str(target_status["status_name"]).strip().lower()
-            != "completed"
-        ):
-            raise TaskUpdateNotPermitted()
+        # The assigned-task permission permits status changes only on the
+        # caller's own assigned tasks. It does not grant access to other users'
+        # tasks.
 
 def _validate_lookups(*, current, changes):
     lookup_fields = {"task_type_id", "status_id", "priority_id"}

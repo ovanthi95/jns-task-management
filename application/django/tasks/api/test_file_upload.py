@@ -10,6 +10,7 @@ and the cleanup rule without AWS credentials (playbook 9.3 / 18).
 MySQL only; procedures are loaded before the class-level transaction.
 """
 
+import os
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -19,6 +20,7 @@ from rest_framework import status
 from data_access.sp_loader import load_stored_procedures
 from projects.models import Project, ProjectMember
 from tasks.models import Attachment, Priority, Task, TaskStatus, TaskType
+from tasks.services import file_upload_service
 from users.models import Organisation, Role, User
 
 PATCH_TARGET = "tasks.services.file_upload_service.get_s3_client"

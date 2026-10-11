@@ -242,3 +242,128 @@ class ProjectUpdateViewTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("end_date", response.data)
+
+    @patch("projects.api.project_update.edit_project")
+    @patch("projects.api.project_update.actor_has_permission")
+    @patch("projects.api.project_update.get_authenticated_session_user")
+    def test_project_members_can_be_updated(
+        self,
+        mock_get_user,
+        mock_permission,
+        mock_edit_project,
+    ):
+        self._login()
+
+        mock_get_user.return_value = self.actor
+        mock_permission.return_value = True
+        mock_edit_project.return_value = self.updated_project
+
+        response = self.client.patch(
+            self.url,
+            {
+                "project_name": "Updated Project",
+                "member_ids": [1, 2, 3],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        mock_edit_project.assert_called_once_with(
+            actor=self.actor,
+            project_id=1,
+            changes={
+                "project_name": "Updated Project",
+                "member_ids": [1, 2, 3],
+            },
+            admin_password=None,
+        )
+
+    @patch("projects.api.project_update.edit_project")
+    @patch("projects.api.project_update.actor_has_permission")
+    @patch("projects.api.project_update.get_authenticated_session_user")
+    def test_duplicate_project_member_ids_are_normalized(
+        self,
+        mock_get_user,
+        mock_permission,
+        mock_edit_project,
+    ):
+        self._login()
+
+        mock_get_user.return_value = self.actor
+        mock_permission.return_value = True
+        mock_edit_project.return_value = self.updated_project
+
+        response = self.client.patch(
+            self.url,
+            {
+                "project_name": "Updated Project",
+                "member_ids": [1, 2, 2, 3, 1],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_edit_project.assert_called_once_with(
+            actor=self.actor,
+            project_id=1,
+            changes={
+                "project_name": "Updated Project",
+                "member_ids": [1, 2, 3],
+            },
+            admin_password=None,
+        )
+
+    @patch("projects.api.project_update.edit_project")
+    @patch("projects.api.project_update.actor_has_permission")
+    @patch("projects.api.project_update.get_authenticated_session_user")
+    def test_invalid_member_ids_returns_400(
+        self,
+        mock_get_user,
+        mock_permission,
+        mock_edit_project,
+    ):
+        self._login()
+
+        mock_get_user.return_value = self.actor
+        mock_permission.return_value = True
+
+        response = self.client.patch(
+            self.url,
+            {
+                "project_name": "Updated Project",
+                "member_ids": [0, 2],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("member_ids", response.data)
+
+    @patch("projects.api.project_update.edit_project")
+    @patch("projects.api.project_update.actor_has_permission")
+    @patch("projects.api.project_update.get_authenticated_session_user")
+    def test_creator_cannot_be_removed_returns_400(
+        self,
+        mock_get_user,
+        mock_permission,
+        mock_edit_project,
+    ):
+        self._login()
+
+        mock_get_user.return_value = self.actor
+        mock_permission.return_value = True
+        mock_edit_project.side_effect = DatabaseError(
+            "Project creator must remain a member"
+        )
+
+        response = self.client.patch(
+            self.url,
+            {
+                "member_ids": [2, 3],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("member_ids", response.data)

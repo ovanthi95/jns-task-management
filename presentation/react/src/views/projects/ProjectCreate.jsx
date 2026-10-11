@@ -21,6 +21,7 @@ export default function ProjectCreate() {
   const [values, setValues] = useState(empty);
   const [members, setMembers] = useState([]);
   const [selected, setSelected] = useState([]);
+  const [memberSearch, setMemberSearch] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [access, setAccess] = useState('checking');
   const [busy, setBusy] = useState(false);
@@ -44,8 +45,6 @@ export default function ProjectCreate() {
           if (!active) return;
           setMembers(users.filter((item) => item.status === 'Active'));
         } catch {
-          // Creator membership is guaranteed by the backend, so project
-          // creation remains usable even when this account cannot list users.
           if (active) setMembers([]);
         }
       })
@@ -75,6 +74,19 @@ export default function ProjectCreate() {
       ),
     [members]
   );
+
+  const filteredMembers = useMemo(() => {
+    const query = memberSearch.trim().toLowerCase();
+
+    if (!query) return sortedMembers;
+
+    return sortedMembers.filter((user) => {
+      const name = `${user.first_name} ${user.last_name}`.toLowerCase();
+      const role = (user.role_name || '').toLowerCase();
+
+      return name.includes(query) || role.includes(query);
+    });
+  }, [memberSearch, sortedMembers]);
 
   const change = (event) => {
     setValues((current) => ({
@@ -175,14 +187,30 @@ export default function ProjectCreate() {
 
         <Form.Group className="mb-3">
           <Form.Label>Project members</Form.Label>
+
+          {members.length > 0 && (
+            <Form.Control
+              type="search"
+              placeholder="Search members by name or role..."
+              value={memberSearch}
+              onChange={(event) => setMemberSearch(event.target.value)}
+              className="mb-3"
+              aria-label="Search project members"
+            />
+          )}
+
           <div className="border rounded p-3">
             {sortedMembers.length === 0 ? (
               <small className="text-muted">
                 You will be added as the project creator. Other members can be
                 added when the user list is available.
               </small>
+            ) : filteredMembers.length === 0 ? (
+              <small className="text-muted">
+                No members match your search.
+              </small>
             ) : (
-              sortedMembers.map((user) => {
+              filteredMembers.map((user) => {
                 const isCreator =
                   Number(user.user_id) === Number(currentUser?.user_id);
 
@@ -199,6 +227,12 @@ export default function ProjectCreate() {
                   />
                 );
               })
+            )}
+
+            {selected.length > 0 && (
+              <small className="text-muted d-block mt-2">
+                {selected.length} member{selected.length === 1 ? '' : 's'} selected
+              </small>
             )}
           </div>
         </Form.Group>

@@ -1,4 +1,4 @@
-"""PATCH /api/projects/:projectId - project lifecycle update."""
+"""PATCH /api/projects/:projectId - project lifecycle and membership update."""
 
 from django.db import DatabaseError
 from django.utils.decorators import method_decorator
@@ -19,13 +19,26 @@ from users.services.session_service import get_authenticated_session_user
 
 
 class ProjectUpdateSerializer(serializers.Serializer):
-    project_name = serializers.CharField(max_length=150, trim_whitespace=True, required=False)
-    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    project_name = serializers.CharField(
+        max_length=150,
+        trim_whitespace=True,
+        required=False,
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
     start_date = serializers.DateField(required=False, allow_null=True)
     end_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.ChoiceField(
         choices=["Active", "Inactive", "Completed"],
         required=False,
+    )
+    member_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=True,
     )
     admin_password = serializers.CharField(
         write_only=True,
@@ -37,7 +50,13 @@ class ProjectUpdateSerializer(serializers.Serializer):
     def validate(self, attrs):
         editable_fields = set(attrs) - {"admin_password"}
         if not editable_fields:
-            raise serializers.ValidationError("Provide at least one field to update.")
+            raise serializers.ValidationError(
+                "Provide at least one field to update."
+            )
+
+        if "member_ids" in attrs:
+            attrs["member_ids"] = list(dict.fromkeys(attrs["member_ids"]))
+
         return attrs
 
 
@@ -81,7 +100,11 @@ class ProjectUpdateView(APIView):
             )
         except ReactivationPasswordRequired:
             return Response(
-                {"admin_password": ["Your password is required to reopen a completed project."]},
+                {
+                    "admin_password": [
+                        "Your password is required to reopen a completed project."
+                    ]
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except InvalidAdminPassword:
@@ -91,21 +114,41 @@ class ProjectUpdateView(APIView):
             )
         except DatabaseError as exc:
             message = str(exc).lower()
+
             if "end date cannot be before start date" in message:
                 return Response(
                     {"end_date": ["End date cannot be before start date."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
             if "invalid project status" in message:
                 return Response(
                     {"status": ["Choose Active, Inactive, or Completed."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
             if "project name is required" in message:
                 return Response(
                     {"project_name": ["Project name is required."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            if "project creator must remain a member" in message:
+                return Response(
+                    {"member_ids": ["The project creator must remain a member."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if "one or more project members are invalid or inactive" in message:
+                return Response(
+                    {
+                        "member_ids": [
+                            "One or more selected members are invalid or inactive."
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             raise
 
         return Response(project)

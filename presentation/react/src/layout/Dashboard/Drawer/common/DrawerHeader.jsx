@@ -21,7 +21,7 @@ export const DrawerHeader = () => {
           }}
         >
           <img
-            src="/favicon.svg"
+            src="/jns-favicon.svg?v=3"
             alt=""
             width="35"
             height="35"

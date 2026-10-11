@@ -73,8 +73,6 @@ export default function RolesPermissions() {
       is_active: Boolean(selectedRole.is_active),
       permission_codes: selectedRole.permission_codes || []
     });
-    setSuccess('');
-    setError('');
   }, [selectedRole]);
 
   const groupedPermissions = useMemo(() => {
@@ -237,7 +235,11 @@ export default function RolesPermissions() {
                   {roles.map((role) => (
                     <tr
                       key={role.role_id}
-                      onClick={() => setSelectedId(role.role_id)}
+                      onClick={() => {
+                        setSelectedId(role.role_id);
+                        setSuccess('');
+                        setError('');
+                      }}
                       style={{ cursor: 'pointer' }}
                       className={
                         Number(selectedId) === Number(role.role_id)

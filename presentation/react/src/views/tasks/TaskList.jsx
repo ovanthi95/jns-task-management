@@ -241,7 +241,16 @@ export default function TaskList() {
             {visibleTasks.map((task) => (
               <tr key={task.task_id}>
                 <td>
-                  <div className="fw-semibold d-flex align-items-center gap-2 flex-wrap"><span>{task.title}</span>{canOpenTask(task) && (<Button as={Link} to={"/projects/" + projectId + "/tasks/" + task.task_id} size="sm" variant="outline-primary">Open</Button>)}</div>
+                  {canOpenTask(task) ? (
+                    <Link
+                      to={"/projects/" + projectId + "/tasks/" + task.task_id}
+                      className="fw-semibold text-decoration-none"
+                    >
+                      {task.title}
+                    </Link>
+                  ) : (
+                    <div className="fw-semibold">{task.title}</div>
+                  )}
                   {task.description && (
                     <small className="text-muted">{task.description}</small>
                   )}

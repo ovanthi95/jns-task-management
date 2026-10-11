@@ -69,10 +69,8 @@ END
 
 def create_user_workload_procedure(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
-        for statement in SP_GET_USER_WORKLOAD.strip().split(";"):
-            statement = statement.strip()
-            if statement:
-                cursor.execute(statement)
+        cursor.execute("DROP PROCEDURE IF EXISTS sp_get_user_workload")
+        cursor.execute(SP_GET_USER_WORKLOAD)
 
 
 def drop_user_workload_procedure(apps, schema_editor):

@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 
 import Drawer from './Drawer';
 import Header from './Header';
+import Footer from './Footer';
 import Breadcrumbs from 'components/Breadcrumbs';
 import NavigationScroll from 'components/NavigationScroll';
 
@@ -18,6 +19,7 @@ export default function MainLayout() {
           </NavigationScroll>
         </div>
       </div>
+      <Footer />
     </>
   );
 }

@@ -2,17 +2,23 @@
 
 import json
 
-from ._procedure import call_procedure
-
-PROCEDURE_NAME = "sp_update_project_members"
+from django.db import connection
 
 
 def update_project_members(*, project_id, organisation_id, member_ids):
-    return call_procedure(
-        PROCEDURE_NAME,
-        [
-            project_id,
-            organisation_id,
-            json.dumps([int(member_id) for member_id in member_ids]),
-        ],
-    )
+    with connection.cursor() as cursor:
+        cursor.callproc(
+            "sp_update_project_members",
+            [
+                project_id,
+                organisation_id,
+                json.dumps([int(member_id) for member_id in member_ids]),
+            ],
+        )
+
+        rows = cursor.fetchall()
+        if not rows:
+            return []
+
+        columns = [column[0] for column in cursor.description]
+        return [dict(zip(columns, row)) for row in rows]

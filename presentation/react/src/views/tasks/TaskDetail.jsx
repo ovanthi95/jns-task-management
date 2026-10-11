@@ -192,7 +192,7 @@ export default function TaskDetail() {
     return <MainCard title="Task">{error || 'Task not found.'}</MainCard>;
   }
 
-  const canInteract = canViewAll || isAssignee;
+  const canInteract = true;
   const canEditTask = canEdit || canReassign;
 
   return (

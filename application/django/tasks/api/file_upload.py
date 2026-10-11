@@ -12,6 +12,7 @@ from tasks.services.file_upload_service import (
     FileUploadValidationError,
     StorageError,
     TaskNotAccessible,
+    generate_download_url,
     upload_task_file,
 )
 from users.services.session_service import get_authenticated_session_user
@@ -97,3 +98,50 @@ class FileUploadView(APIView):
             )
 
         return Response(attachment, status=status.HTTP_201_CREATED)
+
+
+class FileDownloadView(APIView):
+    """Return a short-lived S3 URL after verifying task access."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, task_id, attachment_id):
+        session_user = FileUploadView()._session_user(request)
+
+        if session_user is None:
+            return Response(
+                {"detail": "Not authenticated."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        task = get_task_access(task_id, session_user["user_id"])
+        if task is None:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        attachment = get_task_file(task_id, attachment_id)
+        if attachment is None:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            url = generate_download_url(attachment)
+        except StorageError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(
+            {
+                "download_url": url,
+                "file_name": attachment["file_name"],
+                "expires_in": 300,
+            },
+            status=status.HTTP_200_OK,
+        )

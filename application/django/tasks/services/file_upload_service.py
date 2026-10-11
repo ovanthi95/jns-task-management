@@ -65,6 +65,9 @@ class LocalFakeS3Client:
     def delete_object(self, Bucket, Key):
         self.objects.pop((Bucket, Key), None)
 
+    def generate_presigned_url(self, ClientMethod, Params, ExpiresIn):
+        return f"local://{Params['Key']}?expires={ExpiresIn}"
+
 
 def get_bucket_name():
     return os.getenv("AWS_S3_BUCKET", "")

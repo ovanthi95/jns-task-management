@@ -74,7 +74,7 @@ def get_bucket_name():
 
 
 def get_s3_client():
-    """Return the configured S3 client, using the EC2 IAM role in production."""
+    """Return an S3 client using the bucket's region, not the EC2 region."""
 
     if not get_bucket_name():
         return LocalFakeS3Client()
@@ -82,11 +82,20 @@ def get_s3_client():
     import boto3
     from botocore.config import Config
 
-    region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+    bucket_region = os.getenv("AWS_S3_REGION") or os.getenv("AWS_S3_BUCKET_REGION")
+
+    if not bucket_region:
+        # EC2 may run in a different AWS region from the S3 bucket.
+        # Ask S3 for the bucket location using the global S3 endpoint.
+        discovery = boto3.client("s3", region_name="us-east-1")
+        location = discovery.get_bucket_location(
+            Bucket=get_bucket_name()
+        ).get("LocationConstraint")
+        bucket_region = location or "us-east-1"
 
     return boto3.client(
         "s3",
-        region_name=region,
+        region_name=bucket_region,
         config=Config(signature_version="s3v4"),
     )
 

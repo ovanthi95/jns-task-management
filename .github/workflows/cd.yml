@@ -89,6 +89,16 @@ jobs:
             application/django/ \
             "${EC2_USER}@${EC2_HOST}:/home/ec2-user/jns-task-management/application/django/"
 
+      - name: Deploy project stored procedures
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          rsync -az \
+            -e "ssh -i $HOME/.ssh/ec2_deploy_key" \
+            data/stored_procedures/projects/ \
+            "${EC2_USER}@${EC2_HOST}:/home/ec2-user/jns-task-management/data/stored_procedures/projects/"
+
       - name: Deploy React application
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -99,7 +109,7 @@ jobs:
             presentation/react/dist/ \
             "${EC2_USER}@${EC2_HOST}:/var/www/jns-task-management/"
 
-      - name: Install dependencies and restart Django
+      - name: Install dependencies, procedures and restart Django
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
@@ -114,6 +124,10 @@ jobs:
             pip install -r requirements.txt
 
             python manage.py migrate --noinput
+
+            python manage.py install_project_procedures \
+              data/stored_procedures/projects/sp_get_project_members.sql \
+              data/stored_procedures/projects/sp_update_project_members.sql
 
             python manage.py check
 

@@ -1,10 +1,8 @@
 import { useEffect, useCallback, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-
 import Breadcrumb from 'react-bootstrap/Breadcrumb';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
-
 import { APP_DEFAULT_PATH } from 'config';
 import navigation from 'menu-items';
 
@@ -22,90 +20,61 @@ function projectBreadcrumbTitle(pathname) {
   return null;
 }
 
+function findBreadcrumbMenuItem(items, pathname) {
+  for (const item of items || []) {
+    if (item.type === 'group' && item.children) {
+      const child = item.children.find(
+        (candidate) =>
+          candidate.type === 'item' &&
+          (pathname === candidate.url || pathname.startsWith(`${candidate.url}/`))
+      );
+      if (child) return { group: item, child };
+    }
+  }
+  return null;
+}
+
 export default function Breadcrumbs() {
   const location = useLocation();
-  const [main, setMain] = useState({});
-  const [item, setItem] = useState({});
+  const [crumb, setCrumb] = useState(null);
 
-  const getCollapse = useCallback(
-    (menuItem) => {
-      if (!menuItem.children) return;
-
-      const exactChild = menuItem.children.find(
-        (child) =>
-          child.type === 'item'
-          && (
-            location.pathname === child.url
-            || location.pathname.startsWith(`${child.url}/`)
-          )
-      );
-
-      if (!exactChild) return;
-
-      setMain({
-        type: 'collapse',
-        title: typeof menuItem.title === 'string' ? menuItem.title : undefined,
-        url: menuItem.children.find((child) => child.type === 'item')?.url || APP_DEFAULT_PATH
-      });
-
-      setItem({
-        type: 'item',
-        title: projectBreadcrumbTitle(location.pathname) || (
-          typeof exactChild.title === 'string' ? exactChild.title : ''
-        ),
-        breadcrumbs: exactChild.breadcrumbs !== false
-      });
-    },
-    [location.pathname]
-  );
-
-  useEffect(() => {
-    setMain({});
-    setItem({});
-
-    if (location.pathname.startsWith('/projects')) {
-      const projectsGroup = navigation.items.find(
-        (navItem) => navItem.type === 'group' && navItem.id === 'worklink-management'
-      );
-
-      if (projectsGroup) {
-        getCollapse(projectsGroup);
-      }
+  const resolve = useCallback(() => {
+    const found = findBreadcrumbMenuItem(navigation.items, location.pathname);
+    if (!found) {
+      setCrumb(null);
       return;
     }
 
-    navigation.items.forEach((navItem) => {
-      if (navItem.type === 'group') getCollapse(navItem);
+    setCrumb({
+      groupTitle: typeof found.group.title === 'string' ? found.group.title : '',
+      groupUrl: found.group.children?.find((item) => item.type === 'item')?.url || APP_DEFAULT_PATH,
+      title: projectBreadcrumbTitle(location.pathname) || found.child.title || '',
+      breadcrumbs: found.child.breadcrumbs !== false
     });
-  }, [location.pathname, getCollapse]);
+  }, [location.pathname]);
 
-  if (item.type !== 'item' || item.breadcrumbs === false) {
-    return null;
-  }
+  useEffect(() => {
+    resolve();
+  }, [resolve]);
 
-  const title = item.title || '';
+  if (!crumb || !crumb.breadcrumbs) return null;
 
   return (
     <div className="page-header">
       <div className="page-block">
         <Row className="align-items-center">
           <Col md={12} className="page-header-title text-capitalize">
-            <h5>{title}</h5>
+            <h5>{crumb.title}</h5>
           </Col>
           <Col md={12}>
             <Breadcrumb listProps={{ style: { marginBottom: 0 } }}>
               <Breadcrumb.Item linkAs={Link} linkProps={{ to: APP_DEFAULT_PATH }}>
                 Home
               </Breadcrumb.Item>
-              {main.type === 'collapse' && (
-                <Breadcrumb.Item
-                  linkAs={Link}
-                  linkProps={{ to: main.url }}
-                >
-                  {main.title}
-                </Breadcrumb.Item>
-              )}
-              <Breadcrumb.Item active>{title}</Breadcrumb.Item>
+              <Breadcrumb.Item linkAs={Link} linkProps={{ to: crumb.groupUrl }}>
+                {crumb.groupTitle}
+              </Breadcrumb.Item>
+              <Breadcrumb.Item active>{crumb.title}</Breadcrumb.Item>
             </Breadcrumb>
           </Col>
         </Row>

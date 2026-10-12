@@ -9,6 +9,8 @@ Run from application/django with DB_ENGINE=mysql:
     python manage.py test tasks.api.test_task_update
 """
 
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -569,6 +571,58 @@ class TaskUpdateApiTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("estimated_hours", response.data)
+
+    # ------------------------------------------------------------ email notifications
+
+    def test_admin_notification_sends_email_after_update(self):
+        self._login_as(self.admin)
+        with patch("tasks.api.task_update.send_task_update_email", return_value=True) as send:
+            response = self.client.patch(
+                self.url, {"title": "New title", "notify_assignee": True}, format="json"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["email_sent"])
+        send.assert_called_once()
+        self.assertEqual(send.call_args.kwargs["changes"]["title"], ("Collect bank statements", "New title"))
+
+    def test_unselected_notification_never_sends(self):
+        self._login_as(self.admin)
+        with patch("tasks.api.task_update.send_task_update_email") as send:
+            response = self.client.patch(self.url, {"title": "New title"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        send.assert_not_called()
+
+    def test_unpermitted_notification_is_forbidden_before_update(self):
+        self._login_as(self.manager)
+        with patch("tasks.api.task_update.send_task_update_email") as send:
+            response = self.client.patch(
+                self.url, {"title": "New title", "notify_assignee": True}, format="json"
+            )
+        self.assertEqual(response.status_code, 403)
+        send.assert_not_called()
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.title, "Collect bank statements")
+
+    def test_notification_error_does_not_undo_task_update(self):
+        self._login_as(self.admin)
+        with patch("tasks.api.task_update.send_task_update_email", side_effect=RuntimeError("SMTP unavailable")):
+            response = self.client.patch(
+                self.url, {"title": "New title", "notify_assignee": True}, format="json"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["email_sent"])
+        self.assertIn("email_warning", response.data)
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.title, "New title")
+
+    def test_no_email_if_value_is_unchanged(self):
+        self._login_as(self.admin)
+        with patch("tasks.api.task_update.send_task_update_email") as send:
+            response = self.client.patch(
+                self.url, {"title": self.task.title, "notify_assignee": True}, format="json"
+            )
+        self.assertEqual(response.status_code, 200)
+        send.assert_not_called()
 
     # ------------------------------------------------------------ helpers
 

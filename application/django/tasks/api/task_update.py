@@ -1,6 +1,7 @@
 """API 08 - PATCH /api/tasks/:taskId."""
 
 from django.db import DatabaseError
+from tasks.models import Task, TaskAssignee
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,7 +11,6 @@ from tasks.serializers import TaskSerializer
 from tasks.services.exceptions import InvalidTaskInput
 from tasks.services.task_notification_service import send_task_update_email
 from users.services.permission_service import actor_has_permission
-from users.services.session_service import get_authenticated_session_user
 from tasks.services.task_update_service import (
     TaskNotVisible,
     TaskUpdateNotPermitted,
@@ -107,7 +107,28 @@ class TaskUpdateView(APIView):
         }
 
         changes = dict(serializer.validated_data)
-        changes.pop("notify_assignee", None)
+        notify_assignee = changes.pop("notify_assignee", False)
+        if notify_assignee and not actor_has_permission(
+            {"role_name": request.user.role.role_name},
+            "send_task_notifications",
+        ):
+            return Response(
+                {"detail": "Task notification permission required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not changes:
+            return Response(
+                {"detail": "Provide at least one task change."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        before = None
+        if notify_assignee:
+            before = Task.objects.filter(task_id=task_id).first()
+            if before:
+                before_values = {field: getattr(before, field) for field in changes if hasattr(before, field)}
+                before_assignee = TaskAssignee.objects.filter(task_id=task_id).values_list("user_id", flat=True).first()
 
         try:
             task = update_task_details(
@@ -133,10 +154,33 @@ class TaskUpdateView(APIView):
         except DatabaseError as error:
             return _database_error_response(error)
 
-        return Response(
-            TaskSerializer(task).data,
-            status=status.HTTP_200_OK,
-        )
+        response_data = dict(TaskSerializer(task).data)
+        if notify_assignee:
+            response_data["email_requested"] = True
+            response_data["email_sent"] = False
+            after = Task.objects.filter(task_id=task_id).first()
+            actual_changes = {}
+            if before and after:
+                for field, old in before_values.items():
+                    new = getattr(after, field)
+                    if old != new:
+                        actual_changes[field] = (old, new)
+                if "assignee_id" in changes:
+                    current_assignee = TaskAssignee.objects.filter(task_id=task_id).values_list("user_id", flat=True).first()
+                    if before_assignee != current_assignee:
+                        actual_changes["assignee_id"] = (before_assignee, current_assignee)
+            if actual_changes:
+                try:
+                    response_data["email_sent"] = send_task_update_email(
+                        task_id=task_id,
+                        updated_by_id=request.user.user_id,
+                        changes=actual_changes,
+                    )
+                    if not response_data["email_sent"]:
+                        response_data["email_warning"] = "Task updated, but no email was sent to the assignee."
+                except Exception:
+                    response_data["email_warning"] = "Task updated, but the notification email could not be sent."
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 def _database_error_response(error):

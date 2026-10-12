@@ -109,7 +109,7 @@ class TaskUpdateView(APIView):
         changes = dict(serializer.validated_data)
         notify_assignee = changes.pop("notify_assignee", False)
         if notify_assignee and not actor_has_permission(
-            {"role_id": request.user.role_id, "role_name": request.user.role.role_name},
+            {"role_name": request.user.role.role_name},
             "send_task_notifications",
         ):
             return Response(

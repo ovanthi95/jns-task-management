@@ -252,7 +252,7 @@ export default function TaskList() {
                     <div className="fw-semibold">{task.title}</div>
                   )}
                   {task.description && (
-                    <small className="text-muted">{task.description}</small>
+                    <small className="d-block text-muted mt-1">{task.description}</small>
                   )}
                 </td>
                 <td>

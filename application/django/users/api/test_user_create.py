@@ -11,8 +11,6 @@ Edward may add or adjust cases here.
 MySQL only; procedures are loaded before the class-level transaction.
 """
 
-import unittest
-
 from django.test import TestCase
 from rest_framework import status
 
@@ -194,7 +192,6 @@ class UserCreateApiTests(TestCase):
     # service performs on email and availability, the audit row the service
     # writes, or the serializer's deliberate decision not to trim passwords.
 
-    @unittest.expectedFailure
     def test_the_role_is_answered_before_the_body(self):
         """A caller with no permission should get 403, not 400.
 
@@ -210,11 +207,8 @@ class UserCreateApiTests(TestCase):
         here is a small information leak and an inconsistency between
         endpoints.
 
-        Marked expectedFailure so the suite stays green on main while the
-        defect is open. The fix is to move the permission check above
-        is_valid() in the view, or to call can_create_user() before
-        validating. Once that lands this test becomes an unexpected success
-        and the decorator must be deleted in the same commit.
+        The view now performs the permission check before serializer validation,
+        so this test verifies the corrected 401 -> 403 -> 400 ordering.
         """
 
         employee = self._user(self.org, "employee@jns.test", self.employee_role)

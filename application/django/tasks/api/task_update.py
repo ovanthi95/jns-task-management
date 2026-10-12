@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from tasks.serializers import TaskSerializer
 from tasks.services.exceptions import InvalidTaskInput
 from tasks.services.task_notification_service import send_task_update_email
-from users.services.permission_service import user_has_permission
+from users.services.permission_service import actor_has_permission
 from tasks.services.task_update_service import (
     TaskNotVisible,
     TaskUpdateNotPermitted,
@@ -108,7 +108,10 @@ class TaskUpdateView(APIView):
 
         changes = dict(serializer.validated_data)
         notify_assignee = changes.pop("notify_assignee", False)
-        if notify_assignee and not user_has_permission(request.user, "send_task_notifications"):
+        if notify_assignee and not actor_has_permission(
+            {"role_id": request.user.role_id, "role_name": request.user.role.role_name},
+            "send_task_notifications",
+        ):
             return Response(
                 {"detail": "Task notification permission required."},
                 status=status.HTTP_403_FORBIDDEN,
